@@ -63,7 +63,8 @@ import java.time.LocalDate
 @Composable
 fun TicketViewScreen(
     viewModel: TicketViewModel = hiltViewModel(),
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    bottomContentPadding: Dp = 0.dp
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val coroutineScope = rememberCoroutineScope()
@@ -75,6 +76,7 @@ fun TicketViewScreen(
     TicketViewContent(
         uiState = uiState,
         modifier = modifier,
+        bottomContentPadding = bottomContentPadding,
         onRetryClick = {
             coroutineScope.launch {
                 viewModel.loadPublicTickets()
@@ -93,7 +95,8 @@ private fun TicketViewContent(
     uiState: TicketViewUiState,
     onRetryClick: () -> Unit,
     onTicketLikeClick: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    bottomContentPadding: Dp = 0.dp
 ) {
     Column(
         modifier = modifier
@@ -110,7 +113,7 @@ private fun TicketViewContent(
                 start = 16.dp,
                 top = 16.dp,
                 end = 16.dp,
-                bottom = 24.dp
+                bottom = 24.dp + bottomContentPadding
             ),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {

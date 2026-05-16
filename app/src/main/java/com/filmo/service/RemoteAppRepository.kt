@@ -61,14 +61,9 @@ class RemoteAppRepository @Inject constructor(
             .jsonObject
             .dataObject()
             .string("accessToken")
-        val me = JsonParser.parseToJsonElement(
-            apiService.fetchMe("Bearer $accessToken").string()
-        )
-            .jsonObject
-            .dataObject()
         AuthSession(
-            loginId = me.string("loginId").ifBlank { request.loginId },
-            nickname = me.string("nickname"),
+            loginId = request.loginId,
+            nickname = "",
             accessToken = accessToken
         )
     }.onSuccess {

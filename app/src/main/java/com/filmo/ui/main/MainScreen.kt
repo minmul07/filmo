@@ -69,9 +69,11 @@ fun MainScreen(
     }
     var bottomBarHeightPx by remember { mutableIntStateOf(0) }
     val bottomBarHeight = with(LocalDensity.current) { bottomBarHeightPx.toDp() }
-    val reserveBottomBarSpace = shouldReserveBottomBarSpace(
-        currentDestination = currentDestination
-    )
+    val navDisplayBottomPadding = if (shouldReserveBottomBarSpace(currentDestination)) {
+        bottomBarHeight
+    } else {
+        0.dp
+    }
     val placeBottomBarAboveContent = shouldPlaceBottomBarAboveContent(
         currentDestination = currentDestination
     )
@@ -103,7 +105,7 @@ fun MainScreen(
                     start = safeDrawingPadding.calculateStartPadding(layoutDirection),
                     top = safeDrawingPadding.calculateTopPadding(),
                     end = safeDrawingPadding.calculateEndPadding(layoutDirection),
-                    bottom = if (reserveBottomBarSpace) bottomBarHeight else 0.dp
+                    bottom = navDisplayBottomPadding
                 )
                 .zIndex(1f),
             entryDecorators = listOf(
@@ -113,7 +115,9 @@ fun MainScreen(
             onBack = navigateBack,
             entryProvider = entryProvider {
                 entry<ScreenDestination.TicketView> {
-                    TicketViewScreen()
+                    TicketViewScreen(
+                        bottomContentPadding = bottomBarHeight
+                    )
                 }
 
                 entry<ScreenDestination.Record> {
@@ -139,6 +143,7 @@ fun MainScreen(
 
                 entry<ScreenDestination.Collection> {
                     CollectionScreen(
+                        bottomContentPadding = bottomBarHeight,
                         onTicketClick = { ticketId ->
                             backStack.add(ScreenDestination.CollectionDetail(ticketId))
                         },
@@ -182,13 +187,7 @@ internal fun shouldReserveBottomBarSpace(
     currentDestination: ScreenDestination,
     recordCoversBottomBar: Boolean = false
 ): Boolean {
-    return when {
-        currentDestination is ScreenDestination.Record -> false
-        currentDestination is ScreenDestination.RecordViewingInfo -> false
-        currentDestination is ScreenDestination.CollectionDetail -> false
-        currentDestination is ScreenDestination.CollectionEdit -> false
-        else -> true
-    }
+    return false
 }
 
 internal fun shouldPlaceBottomBarAboveContent(

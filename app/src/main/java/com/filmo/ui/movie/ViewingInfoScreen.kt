@@ -18,12 +18,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.launch
 import java.time.ZoneId
 
 @Composable
@@ -34,7 +32,6 @@ internal fun ViewingInfoRoute(
     onNavigateToCollection: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val coroutineScope = rememberCoroutineScope()
     val routeVisibleState = remember {
         MutableTransitionState(initialState = false).apply {
             targetState = true
@@ -49,7 +46,9 @@ internal fun ViewingInfoRoute(
     }
 
     BackHandler {
-        handleBack()
+        if (uiState.step != RegisterMovieStep.Share) {
+            handleBack()
+        }
     }
 
     AnimatedVisibility(
@@ -89,17 +88,28 @@ internal fun ViewingInfoRoute(
 
             RegisterMovieStep.Share -> TicketShareScreen(
                 uiState = uiState,
-                onBack = handleBack,
-                onShareClick = {
-                    coroutineScope.launch {
-                        if (viewModel.createTicket()) {
-                            onNavigateToCollection()
-                        }
-                    }
-                }
+                onClose = onNavigateToCollection
             )
         }
     }
+
+    LaunchedEffect(uiState.step, viewModel) {
+        if (
+            shouldCreateTicketWhenStepEntered(
+                step = uiState.step,
+                isTicketCreated = uiState.isTicketCreated
+            )
+        ) {
+            viewModel.createTicket()
+        }
+    }
+}
+
+internal fun shouldCreateTicketWhenStepEntered(
+    step: RegisterMovieStep,
+    isTicketCreated: Boolean
+): Boolean {
+    return step == RegisterMovieStep.Share && !isTicketCreated
 }
 
 @Composable

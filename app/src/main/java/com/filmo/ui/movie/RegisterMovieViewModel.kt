@@ -371,6 +371,11 @@ class RegisterMovieViewModel @Inject constructor(
 
     suspend fun createTicket(): Boolean {
         val state = _uiState.value
+        if (state.isTicketCreated) {
+            Timber.d("RegisterMovieViewModel.createTicket ignored: already created")
+            return true
+        }
+
         if (state.isTicketCreateLoading) {
             Timber.d("RegisterMovieViewModel.createTicket ignored: already loading")
             return false
@@ -431,6 +436,7 @@ class RegisterMovieViewModel @Inject constructor(
                 onSuccess = {
                     current.copy(
                         isTicketCreateLoading = false,
+                        isTicketCreated = true,
                         errorMessage = null
                     )
                 },
@@ -497,6 +503,7 @@ class RegisterMovieViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 step = RegisterMovieStep.Share,
+                isTicketCreated = false,
                 errorMessage = null
             )
         }
@@ -516,6 +523,7 @@ data class RegisterMovieUiState(
     val selectedMovieDetail: MovieDetail? = null,
     val isMovieDetailLoading: Boolean = false,
     val isTicketCreateLoading: Boolean = false,
+    val isTicketCreated: Boolean = false,
     val title: String = "",
     val releaseDateMillis: Long? = null,
     val genre: String = "",

@@ -365,6 +365,30 @@ class RegisterMovieViewModelTest {
     }
 
     @Test
+    fun createTicketStoresCreatedStateAndDoesNotCreateDuplicateTicket() = runBlocking {
+        val repository = FakeAppRepository()
+        val viewModel = RegisterMovieViewModel(repository)
+
+        viewModel.selectMovie(FakeMovies.first().copy(id = "1001"))
+        viewModel.updateReleaseDateMillis(
+            releaseDateMillis = 1_778_889_600_000L,
+            nowMillis = 1_778_976_000_000L
+        )
+        viewModel.updateRating(5)
+        viewModel.updateReview("작고 단단한 영화였어요")
+        viewModel.goToNextStep()
+
+        val firstResult = viewModel.createTicket()
+        val secondResult = viewModel.createTicket()
+
+        assertEquals(true, firstResult)
+        assertEquals(true, secondResult)
+        assertEquals(true, viewModel.uiState.value.isTicketCreated)
+        assertEquals(1, repository.createdTicketRequests.size)
+        assertEquals(1, repository.sharedTicketRequests.size)
+    }
+
+    @Test
     fun resetReturnsToInitialSearchStep() {
         val viewModel = RegisterMovieViewModel(FakeAppRepository())
 

@@ -88,16 +88,6 @@ class RemoteAppRepositoryTest {
                     "accessToken": "login-token"
                   }
                 }
-            """.trimIndent(),
-            meResponse = """
-                {
-                  "code": 200,
-                  "message": "OK",
-                  "data": {
-                    "loginId": "user1",
-                    "nickname": "로그인닉네임"
-                  }
-                }
             """.trimIndent()
         )
         val repository = RemoteAppRepository(apiService)
@@ -111,8 +101,7 @@ class RemoteAppRepositoryTest {
 
         assertTrue(result.isSuccess)
         assertEquals("""{"loginId":"user1","password":"1234"}""", apiService.loginBody)
-        assertEquals("Bearer login-token", apiService.meAuthorization)
-        assertEquals(AuthSession("user1", "로그인닉네임", "login-token"), result.getOrThrow())
+        assertEquals(AuthSession("user1", "", "login-token"), result.getOrThrow())
     }
 
     @Test
@@ -822,7 +811,6 @@ class RemoteAppRepositoryTest {
         private val signupResponse: String = """{"data":{"accessToken":"signup-token"}}""",
         private val loginResponse: String = """{"data":{"accessToken":"login-token"}}""",
         private val randomNicknameResponse: String = """{"data":{"nickname":"랜덤닉네임"}}""",
-        private val meResponse: String = """{"data":{"loginId":"user1","nickname":"로그인닉네임"}}""",
         private val moviesResponse: String = """{"data":{"content":[]}}""",
         private val movieDetailResponse: String = """{"data":{}}""",
         private val ticketDetailResponse: String = """{"data":{}}""",
@@ -835,8 +823,6 @@ class RemoteAppRepositoryTest {
         var signupBody: String? = null
             private set
         var loginBody: String? = null
-            private set
-        var meAuthorization: String? = null
             private set
         var requestedMoviePage: Int? = null
             private set
@@ -885,11 +871,6 @@ class RemoteAppRepositoryTest {
 
         override suspend fun fetchRandomNickname(): ResponseBody =
             randomNicknameResponse.toResponseBody()
-
-        override suspend fun fetchMe(authorization: String?): ResponseBody {
-            meAuthorization = authorization
-            return meResponse.toResponseBody()
-        }
 
         override suspend fun fetchMovies(
             keyword: String?,

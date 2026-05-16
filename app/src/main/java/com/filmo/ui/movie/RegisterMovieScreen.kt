@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -138,8 +139,7 @@ private fun RegisterMovieContent(
 @Composable
 internal fun TicketShareScreen(
     uiState: RegisterMovieUiState,
-    onBack: () -> Unit,
-    onShareClick: () -> Unit
+    onClose: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -149,12 +149,12 @@ internal fun TicketShareScreen(
     ) {
         RegisterMovieHeader(
             step = RegisterMovieStep.Share,
-            onBack = onBack
+            onBack = {},
+            onClose = onClose
         )
 
         TicketShareStep(
-            uiState = uiState,
-            onShareClick = onShareClick
+            uiState = uiState
         )
     }
 }
@@ -174,7 +174,8 @@ internal fun isFullScreenStepVisible(step: RegisterMovieStep): Boolean {
 @Composable
 internal fun RegisterMovieHeader(
     step: RegisterMovieStep,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onClose: () -> Unit = {}
 ) {
     if (step == RegisterMovieStep.MovieSearch) {
         Box(
@@ -198,11 +199,15 @@ internal fun RegisterMovieHeader(
             .height(56.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onBack) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "뒤로가기"
-            )
+        if (shouldShowRegisterMovieBackButton(step)) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "뒤로가기"
+                )
+            }
+        } else {
+            Box(modifier = Modifier.width(48.dp))
         }
         Text(
             text = registerMovieHeaderTitle(step),
@@ -210,7 +215,14 @@ internal fun RegisterMovieHeader(
             style = MaterialTheme.typography.titleLarge,
             textAlign = TextAlign.Center
         )
-        if (step == RegisterMovieStep.MovieInfo || step == RegisterMovieStep.Share) {
+        if (shouldShowRegisterMovieCloseButton(step)) {
+            IconButton(onClick = onClose) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = "닫기"
+                )
+            }
+        } else if (step == RegisterMovieStep.MovieInfo || step == RegisterMovieStep.Share) {
             Box(modifier = Modifier.width(48.dp))
         } else {
             Text(
@@ -222,6 +234,14 @@ internal fun RegisterMovieHeader(
             )
         }
     }
+}
+
+internal fun shouldShowRegisterMovieBackButton(step: RegisterMovieStep): Boolean {
+    return step == RegisterMovieStep.MovieInfo
+}
+
+internal fun shouldShowRegisterMovieCloseButton(step: RegisterMovieStep): Boolean {
+    return step == RegisterMovieStep.Share
 }
 
 internal fun registerMovieHeaderTitle(step: RegisterMovieStep): String {

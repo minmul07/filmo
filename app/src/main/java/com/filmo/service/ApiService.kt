@@ -5,7 +5,6 @@ import okhttp3.RequestBody
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
-import retrofit2.http.Header
 import retrofit2.http.PATCH
 import retrofit2.http.Path
 import retrofit2.http.POST
@@ -27,11 +26,6 @@ interface ApiService {
 
     @GET("api/auth/nickname/random")
     suspend fun fetchRandomNickname(): ResponseBody
-
-    @GET("api/users/me")
-    suspend fun fetchMe(
-        @Header("Authorization") authorization: String? = null
-    ): ResponseBody
 
     @GET("api/movies")
     suspend fun fetchMovies(

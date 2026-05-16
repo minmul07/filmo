@@ -32,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -43,6 +44,7 @@ import kotlinx.coroutines.launch
 fun CollectionScreen(
     viewModel: CollectionViewModel = hiltViewModel(),
     modifier: Modifier = Modifier,
+    bottomContentPadding: Dp = 0.dp,
     onTicketClick: (String) -> Unit = {},
     onEditTicket: (String) -> Unit = {}
 ) {
@@ -56,6 +58,7 @@ fun CollectionScreen(
     CollectionContent(
         uiState = uiState,
         modifier = modifier,
+        bottomContentPadding = bottomContentPadding,
         onRetryClick = {
             coroutineScope.launch {
                 viewModel.loadTickets()
@@ -166,6 +169,7 @@ fun CollectionEditScreen(
 private fun CollectionContent(
     uiState: CollectionUiState,
     modifier: Modifier = Modifier,
+    bottomContentPadding: Dp = 0.dp,
     onRetryClick: () -> Unit,
     onTicketClick: (String) -> Unit,
     onTicketLikeClick: (String) -> Unit,
@@ -188,7 +192,7 @@ private fun CollectionContent(
                 start = 16.dp,
                 top = 16.dp,
                 end = 16.dp,
-                bottom = 24.dp
+                bottom = 24.dp + bottomContentPadding
             ),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)

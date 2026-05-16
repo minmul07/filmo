@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -44,39 +42,16 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 internal fun TicketShareStep(
-    uiState: RegisterMovieUiState,
-    onShareClick: () -> Unit
+    uiState: RegisterMovieUiState
 ) {
     StepContent(
         action = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(96.dp)
+                    .height(72.dp)
             ) {
                 ErrorText(errorMessage = uiState.errorMessage)
-                Button(
-                    onClick = onShareClick,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 10.dp)
-                        .height(48.dp),
-                    enabled = !uiState.isTicketCreateLoading,
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Text(
-                        text = if (uiState.isTicketCreateLoading) {
-                            "티켓 생성 중..."
-                        } else {
-                            "티켓 발행하기"
-                        },
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
                 Spacer(modifier = Modifier.height(28.dp))
             }
         }

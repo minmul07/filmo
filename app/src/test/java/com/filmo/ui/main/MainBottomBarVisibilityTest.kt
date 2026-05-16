@@ -29,12 +29,10 @@ class MainBottomBarVisibilityTest {
     }
 
     @Test
-    fun topLevelDestinationsReserveBottomBarSpace() {
-        assertTrue(
-            shouldReserveBottomBarSpace(
-                currentDestination = ScreenDestination.TicketView
-            )
-        )
+    fun navDisplayDoesNotReserveBottomBarSpaceForTopLevelDestinations() {
+        assertFalse(shouldReserveBottomBarSpace(ScreenDestination.Collection))
+        assertFalse(shouldReserveBottomBarSpace(ScreenDestination.Record))
+        assertFalse(shouldReserveBottomBarSpace(ScreenDestination.TicketView))
     }
 
     @Test
