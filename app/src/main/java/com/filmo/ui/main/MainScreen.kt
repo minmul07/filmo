@@ -1,6 +1,12 @@
 package com.filmo.ui.main
 
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -13,8 +19,16 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
@@ -43,21 +57,35 @@ fun MainScreen(
             backStack.removeAt(backStack.lastIndex)
         }
     }
+    val isRecordDestination = currentDestination == ScreenDestination.Record
+    val layoutDirection = LocalLayoutDirection.current
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
             FilmoBottomBar(
                 currentDestination = currentDestination,
+                hidden = isRecordDestination,
                 onDestinationClick = navigateToTopLevelDestination
             )
         }
     ) { innerPadding ->
+        val contentPadding = if (isRecordDestination) {
+            PaddingValues(
+                start = innerPadding.calculateStartPadding(layoutDirection),
+                top = innerPadding.calculateTopPadding(),
+                end = innerPadding.calculateEndPadding(layoutDirection),
+                bottom = 0.dp
+            )
+        } else {
+            innerPadding
+        }
+
         NavDisplay(
             backStack = backStack,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
+                .padding(contentPadding),
             entryDecorators = listOf(
                 rememberSaveableStateHolderNavEntryDecorator(),
                 rememberViewModelStoreNavEntryDecorator()
@@ -69,7 +97,12 @@ fun MainScreen(
                 }
 
                 entry<ScreenDestination.Record> {
-                    RegisterMovieScreen()
+                    RegisterMovieScreen(
+                        onBack = { navigateToTopLevelDestination(ScreenDestination.Feed) },
+                        onNavigateToCollection = {
+                            navigateToTopLevelDestination(ScreenDestination.Collection)
+                        }
+                    )
                 }
 
                 entry<ScreenDestination.TheaterFinder> {
@@ -87,9 +120,21 @@ fun MainScreen(
 @Composable
 private fun FilmoBottomBar(
     currentDestination: ScreenDestination,
+    hidden: Boolean,
     onDestinationClick: (ScreenDestination) -> Unit
 ) {
-    NavigationBar {
+    var barHeightPx by remember { mutableIntStateOf(0) }
+    val offsetY by animateIntAsState(
+        targetValue = if (hidden) barHeightPx else 0,
+        animationSpec = tween(durationMillis = 300),
+        label = "bottom_bar_offset"
+    )
+
+    NavigationBar(
+        modifier = Modifier
+            .onSizeChanged { barHeightPx = it.height }
+            .offset { IntOffset(x = 0, y = offsetY) }
+    ) {
         TopLevelDestinations.forEach { item ->
             NavigationBarItem(
                 selected = currentDestination == item.destination,
@@ -125,7 +170,7 @@ private val TopLevelDestinations = listOf(
     ),
     TopLevelDestination(
         destination = ScreenDestination.TheaterFinder,
-        label = "영화관 찾기",
+        label = "영화관",
         icon = Icons.Filled.LocationOn
     ),
     TopLevelDestination(

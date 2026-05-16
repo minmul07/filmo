@@ -21,7 +21,7 @@ fun TheaterFinderScreen(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "영화관 찾기 화면 테스트",
+            text = "영화관 화면 테스트",
             style = MaterialTheme.typography.headlineMedium
         )
     }
