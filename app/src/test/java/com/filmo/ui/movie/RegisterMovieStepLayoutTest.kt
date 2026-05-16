@@ -42,6 +42,28 @@ class RegisterMovieStepLayoutTest {
     }
 
     @Test
+    fun initialMovieSearchStateDoesNotShowEmptyResultsMessage() {
+        assertFalse(
+            shouldShowMovieSearchEmptyResults(
+                movies = emptyList(),
+                isLoading = false,
+                hasLoadedMovieCatalog = false
+            )
+        )
+    }
+
+    @Test
+    fun loadedMovieSearchStateShowsEmptyResultsMessageForEmptyMovies() {
+        assertTrue(
+            shouldShowMovieSearchEmptyResults(
+                movies = emptyList(),
+                isLoading = false,
+                hasLoadedMovieCatalog = true
+            )
+        )
+    }
+
+    @Test
     fun shareStepUsesTicketIssueHeaderTitle() {
         assertEquals("티켓 발행", registerMovieHeaderTitle(RegisterMovieStep.Share))
     }

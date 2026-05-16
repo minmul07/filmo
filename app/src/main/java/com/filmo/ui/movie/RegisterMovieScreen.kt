@@ -124,6 +124,7 @@ private fun RegisterMovieContent(
                     isLoading = uiState.isMovieCatalogLoading,
                     isAppending = uiState.isMovieCatalogAppendLoading,
                     canLoadMore = uiState.canLoadMoreMovies,
+                    hasLoadedMovieCatalog = uiState.hasLoadedMovieCatalog,
                     errorMessage = uiState.errorMessage,
                     posterImageCache = posterImageCache,
                     modifier = Modifier.weight(1f),

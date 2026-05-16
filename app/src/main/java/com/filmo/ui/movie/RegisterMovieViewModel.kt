@@ -69,12 +69,14 @@ class RegisterMovieViewModel @Inject constructor(
                         canLoadMoreMovies = page.hasMore,
                         isMovieCatalogLoading = false,
                         isMovieCatalogAppendLoading = false,
+                        hasLoadedMovieCatalog = true,
                         errorMessage = null
                     )
                 },
                 onFailure = {
                     state.copy(
                         isMovieCatalogLoading = false,
+                        hasLoadedMovieCatalog = true,
                         errorMessage = "영화 목록을 불러오지 못했어요. 다시 시도해 주세요."
                     )
                 }
@@ -433,6 +435,7 @@ data class RegisterMovieUiState(
     val canLoadMoreMovies: Boolean = true,
     val isMovieCatalogLoading: Boolean = false,
     val isMovieCatalogAppendLoading: Boolean = false,
+    val hasLoadedMovieCatalog: Boolean = false,
     val selectedMovie: MovieCatalogItem? = null,
     val selectedMovieDetail: MovieDetail? = null,
     val isMovieDetailLoading: Boolean = false,

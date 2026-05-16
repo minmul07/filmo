@@ -53,6 +53,7 @@ internal fun MovieSearchStep(
     isLoading: Boolean,
     isAppending: Boolean,
     canLoadMore: Boolean,
+    hasLoadedMovieCatalog: Boolean,
     errorMessage: String?,
     posterImageCache: MoviePosterBitmapSessionCache,
     modifier: Modifier = Modifier,
@@ -110,7 +111,11 @@ internal fun MovieSearchStep(
                 }
             }
 
-            movies.isEmpty() -> {
+            shouldShowMovieSearchEmptyResults(
+                movies = movies,
+                isLoading = isLoading,
+                hasLoadedMovieCatalog = hasLoadedMovieCatalog
+            ) -> {
                 PlaceholderPanel(
                     title = "검색 결과가 없어요",
                     body = "다른 제목이나 감독명으로 검색해 주세요."
@@ -154,6 +159,14 @@ internal fun MovieSearchStep(
             }
         }
     }
+}
+
+internal fun shouldShowMovieSearchEmptyResults(
+    movies: List<MovieCatalogItem>,
+    isLoading: Boolean,
+    hasLoadedMovieCatalog: Boolean
+): Boolean {
+    return !isLoading && hasLoadedMovieCatalog && movies.isEmpty()
 }
 
 @Composable
