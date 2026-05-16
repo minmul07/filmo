@@ -2,9 +2,17 @@ package minmul.androidtemplate.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import minmul.androidtemplate.R
+
+val PretendardFontFamily = FontFamily(
+    Font(R.font.pretendard_light, weight = FontWeight.Light),
+    Font(R.font.pretendard_regular, weight = FontWeight.Normal),
+    Font(R.font.pretendard_semibold, weight = FontWeight.SemiBold),
+)
 
 // Set of Material typography styles to start with
 val Typography = Typography(
@@ -31,22 +39,7 @@ val Typography = Typography(
         letterSpacing = 0.5.sp
     )
     */
-)
-
-/*
-
-val provider = GoogleFont.Provider(
-    providerAuthority = "com.google.android.gms.fonts",
-    providerPackage = "com.google.android.gms",
-    certificates = R.array.com_google_android_gms_fonts_certs,
-)
-val fontName = GoogleFont("Noto Sans")
-val NotoSansFamily = FontFamily(
-    Font(googleFont = fontName, fontProvider = provider, weight = FontWeight.Normal),
-    Font(googleFont = fontName, fontProvider = provider, weight = FontWeight.Bold),
-    Font(googleFont = fontName, fontProvider = provider, weight = FontWeight.Medium),
-    // 필요한 Weight 추가
-)
+).applyFontFamily(PretendardFontFamily)
 
 fun Typography.applyFontFamily(fontFamily: FontFamily): Typography {
     return this.copy(
@@ -68,7 +61,5 @@ fun Typography.applyFontFamily(fontFamily: FontFamily): Typography {
     )
 }
 
-val AppTypography = Typography().applyFontFamily(NotoSansFamily)
+val AppTypography = Typography
 
-
- */
