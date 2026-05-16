@@ -5,6 +5,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import com.filmo.BuildConfig
+import timber.log.Timber
 import javax.inject.Provider
 import javax.inject.Singleton
 
@@ -18,8 +19,10 @@ object RepositoryModule {
         remoteAppRepository: Provider<RemoteAppRepository>
     ): AppRepository {
         return if (BuildConfig.USE_MOCK_REPOSITORY) {
+            Timber.d("RepositoryModule.provideAppRepository selected=mock")
             mockAppRepository.get()
         } else {
+            Timber.d("RepositoryModule.provideAppRepository selected=remote")
             remoteAppRepository.get()
         }
     }

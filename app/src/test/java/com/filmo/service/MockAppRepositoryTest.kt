@@ -7,6 +7,46 @@ import org.junit.Test
 
 class MockAppRepositoryTest {
     @Test
+    fun signUpReturnsMockAccessTokenAfterMockDelay() = runBlocking {
+        val repository = MockAppRepository()
+
+        val result = repository.signUp(
+            SignupRequest(
+                loginId = "user1",
+                password = "1234",
+                nickname = "시네필"
+            )
+        )
+
+        assertTrue(result.isSuccess)
+        assertEquals("user1", result.getOrThrow().loginId)
+        assertEquals("시네필", result.getOrThrow().nickname)
+        assertTrue(result.getOrThrow().accessToken.isNotBlank())
+    }
+
+    @Test
+    fun loginReturnsMockAccessTokenAfterMockDelay() = runBlocking {
+        val repository = MockAppRepository()
+
+        val result = repository.login(LoginRequest(loginId = "user1", password = "1234"))
+
+        assertTrue(result.isSuccess)
+        assertEquals("user1", result.getOrThrow().loginId)
+        assertTrue(result.getOrThrow().nickname.isNotBlank())
+        assertTrue(result.getOrThrow().accessToken.isNotBlank())
+    }
+
+    @Test
+    fun fetchRandomNicknameReturnsServerLikeNicknameAfterMockDelay() = runBlocking {
+        val repository = MockAppRepository()
+
+        val result = repository.fetchRandomNickname()
+
+        assertTrue(result.isSuccess)
+        assertTrue(result.getOrThrow().isNotBlank())
+    }
+
+    @Test
     fun pingReturnsSuccessAfterMockDelay() = runBlocking {
         val repository = MockAppRepository()
 

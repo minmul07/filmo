@@ -1,13 +1,17 @@
 package com.filmo.ui.movie
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.filmo.service.AppRepository
 import com.filmo.service.MovieCatalogItem
+import com.filmo.service.MovieDetail
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 @HiltViewModel
@@ -18,8 +22,16 @@ class RegisterMovieViewModel @Inject constructor(
     val uiState: StateFlow<RegisterMovieUiState> = _uiState.asStateFlow()
 
     suspend fun loadMovieCatalog() {
-        if (_uiState.value.isMovieCatalogLoading) return
+        if (_uiState.value.isMovieCatalogLoading) {
+            Timber.d("RegisterMovieViewModel.loadMovieCatalog ignored: already loading")
+            return
+        }
 
+        Timber.d(
+            "RegisterMovieViewModel.loadMovieCatalog request page=%d size=%d",
+            InitialMovieCatalogPage,
+            MovieCatalogPageSize
+        )
         _uiState.update {
             it.copy(
                 isMovieCatalogLoading = true,
@@ -27,13 +39,31 @@ class RegisterMovieViewModel @Inject constructor(
             )
         }
 
-        val result = appRepository.fetchMovieCatalog()
+        val result = appRepository.fetchMovieCatalogPage(
+            page = InitialMovieCatalogPage,
+            size = MovieCatalogPageSize
+        )
+        result
+            .onSuccess { page ->
+                Timber.d(
+                    "RegisterMovieViewModel.loadMovieCatalog success page=%d itemCount=%d hasMore=%s",
+                    InitialMovieCatalogPage,
+                    page.items.size,
+                    page.hasMore
+                )
+            }
+            .onFailure {
+                Timber.w(it, "RegisterMovieViewModel.loadMovieCatalog failed page=%d", InitialMovieCatalogPage)
+            }
         _uiState.update { state ->
             result.fold(
-                onSuccess = { movies ->
+                onSuccess = { page ->
                     state.copy(
-                        movies = movies,
+                        movies = page.items,
+                        movieCatalogPage = InitialMovieCatalogPage,
+                        canLoadMoreMovies = page.hasMore,
                         isMovieCatalogLoading = false,
+                        isMovieCatalogAppendLoading = false,
                         errorMessage = null
                     )
                 },
@@ -47,20 +77,127 @@ class RegisterMovieViewModel @Inject constructor(
         }
     }
 
+    suspend fun loadNextMovieCatalogPage() {
+        val currentState = _uiState.value
+        if (currentState.isMovieCatalogLoading ||
+            currentState.isMovieCatalogAppendLoading ||
+            !currentState.canLoadMoreMovies
+        ) {
+            Timber.d(
+                "RegisterMovieViewModel.loadNextMovieCatalogPage ignored loading=%s appendLoading=%s canLoadMore=%s",
+                currentState.isMovieCatalogLoading,
+                currentState.isMovieCatalogAppendLoading,
+                currentState.canLoadMoreMovies
+            )
+            return
+        }
+
+        val nextPage = currentState.movieCatalogPage + 1
+        Timber.d(
+            "RegisterMovieViewModel.loadNextMovieCatalogPage request page=%d size=%d",
+            nextPage,
+            MovieCatalogPageSize
+        )
+        _uiState.update {
+            it.copy(
+                isMovieCatalogAppendLoading = true,
+                errorMessage = null
+            )
+        }
+
+        val result = appRepository.fetchMovieCatalogPage(
+            page = nextPage,
+            size = MovieCatalogPageSize
+        )
+        result
+            .onSuccess { page ->
+                Timber.d(
+                    "RegisterMovieViewModel.loadNextMovieCatalogPage success page=%d itemCount=%d hasMore=%s",
+                    nextPage,
+                    page.items.size,
+                    page.hasMore
+                )
+            }
+            .onFailure {
+                Timber.w(it, "RegisterMovieViewModel.loadNextMovieCatalogPage failed page=%d", nextPage)
+            }
+        _uiState.update { state ->
+            result.fold(
+                onSuccess = { page ->
+                    state.copy(
+                        movies = state.movies + page.items,
+                        movieCatalogPage = nextPage,
+                        canLoadMoreMovies = page.hasMore,
+                        isMovieCatalogAppendLoading = false,
+                        errorMessage = null
+                    )
+                },
+                onFailure = {
+                    state.copy(
+                        isMovieCatalogAppendLoading = false,
+                        errorMessage = "영화 목록을 더 불러오지 못했어요. 다시 시도해 주세요."
+                    )
+                }
+            )
+        }
+    }
+
     fun updateSearchQuery(query: String) {
+        Timber.d(
+            "RegisterMovieViewModel.updateSearchQuery input length=%d blank=%s",
+            query.length,
+            query.isBlank()
+        )
         _uiState.update { it.copy(searchQuery = query, errorMessage = null) }
     }
 
     fun selectMovie(movie: MovieCatalogItem) {
+        Timber.d("RegisterMovieViewModel.selectMovie movieId=%s", movie.id)
         _uiState.update {
             it.copy(
                 step = RegisterMovieStep.MovieInfo,
                 selectedMovie = movie,
+                selectedMovieDetail = null,
+                isMovieDetailLoading = true,
                 title = movie.title,
                 genre = movie.genre,
                 director = movie.director,
+                releaseDateMillis = it.releaseDateMillis ?: todayStartMillis(),
                 errorMessage = null
             )
+        }
+
+        viewModelScope.launch {
+            Timber.d("RegisterMovieViewModel.fetchMovieDetail request movieId=%s", movie.id)
+            val result = appRepository.fetchMovieDetail(movie.id)
+            result
+                .onSuccess { detail ->
+                    Timber.d("RegisterMovieViewModel.fetchMovieDetail success movieId=%s detailId=%s", movie.id, detail.id)
+                }
+                .onFailure {
+                    Timber.w(it, "RegisterMovieViewModel.fetchMovieDetail failed movieId=%s", movie.id)
+                }
+            _uiState.update { state ->
+                if (state.selectedMovie?.id != movie.id) {
+                    Timber.d("RegisterMovieViewModel.fetchMovieDetail ignored stale result movieId=%s", movie.id)
+                    return@update state
+                }
+
+                result.fold(
+                    onSuccess = { detail ->
+                        state.copy(
+                            selectedMovieDetail = detail,
+                            isMovieDetailLoading = false,
+                            title = detail.title.ifBlank { state.title },
+                            genre = detail.genre.ifBlank { state.genre },
+                            director = detail.director.ifBlank { state.director }
+                        )
+                    },
+                    onFailure = {
+                        state.copy(isMovieDetailLoading = false)
+                    }
+                )
+            }
         }
     }
 
@@ -71,6 +208,13 @@ class RegisterMovieViewModel @Inject constructor(
         cast: String
     ) {
         // TODO: Wire this to the backend movie search result when the API is ready.
+        Timber.d(
+            "RegisterMovieViewModel.applySearchResult input titleLength=%d genreLength=%d directorLength=%d castLength=%d",
+            title.length,
+            genre.length,
+            director.length,
+            cast.length
+        )
         _uiState.update {
             it.copy(
                 title = title,
@@ -83,6 +227,7 @@ class RegisterMovieViewModel @Inject constructor(
     }
 
     fun updateTitle(title: String) {
+        Timber.d("RegisterMovieViewModel.updateTitle input length=%d blank=%s", title.length, title.isBlank())
         _uiState.update { it.copy(title = title, errorMessage = null) }
     }
 
@@ -91,6 +236,7 @@ class RegisterMovieViewModel @Inject constructor(
         nowMillis: Long = System.currentTimeMillis()
     ) {
         if (releaseDateMillis != null && isFutureDate(releaseDateMillis, nowMillis)) {
+            Timber.d("RegisterMovieViewModel.updateReleaseDateMillis rejected futureDate=true")
             _uiState.update {
                 it.copy(
                     releaseDateMillis = null,
@@ -100,6 +246,7 @@ class RegisterMovieViewModel @Inject constructor(
             return
         }
 
+        Timber.d("RegisterMovieViewModel.updateReleaseDateMillis input hasDate=%s", releaseDateMillis != null)
         _uiState.update {
             it.copy(
                 releaseDateMillis = releaseDateMillis,
@@ -109,22 +256,31 @@ class RegisterMovieViewModel @Inject constructor(
     }
 
     fun updateGenre(genre: String) {
+        Timber.d("RegisterMovieViewModel.updateGenre input length=%d blank=%s", genre.length, genre.isBlank())
         _uiState.update { it.copy(genre = genre, errorMessage = null) }
     }
 
     fun updateDirector(director: String) {
+        Timber.d("RegisterMovieViewModel.updateDirector input length=%d blank=%s", director.length, director.isBlank())
         _uiState.update { it.copy(director = director, errorMessage = null) }
     }
 
     fun updateCast(cast: String) {
+        Timber.d("RegisterMovieViewModel.updateCast input length=%d blank=%s", cast.length, cast.isBlank())
         _uiState.update { it.copy(cast = cast, errorMessage = null) }
     }
 
     fun updateTheaterName(theaterName: String) {
+        Timber.d(
+            "RegisterMovieViewModel.updateTheaterName input length=%d blank=%s",
+            theaterName.length,
+            theaterName.isBlank()
+        )
         _uiState.update { it.copy(theaterName = theaterName, errorMessage = null) }
     }
 
     fun updateRating(rating: Int) {
+        Timber.d("RegisterMovieViewModel.updateRating input=%d coerced=%d", rating, rating.coerceIn(MIN_RATING, MAX_RATING))
         _uiState.update {
             it.copy(
                 rating = rating.coerceIn(MIN_RATING, MAX_RATING),
@@ -134,10 +290,21 @@ class RegisterMovieViewModel @Inject constructor(
     }
 
     fun updateReview(review: String) {
-        _uiState.update { it.copy(review = review, errorMessage = null) }
+        Timber.d(
+            "RegisterMovieViewModel.updateReview input length=%d storedLength=%d",
+            review.length,
+            review.take(MAX_REVIEW_LENGTH).length
+        )
+        _uiState.update {
+            it.copy(
+                review = review.take(MAX_REVIEW_LENGTH),
+                errorMessage = null
+            )
+        }
     }
 
     fun selectTicketTemplate(template: TicketTemplateOption) {
+        Timber.d("RegisterMovieViewModel.selectTicketTemplate template=%s", template.name)
         _uiState.update {
             it.copy(
                 selectedTicketTemplate = template,
@@ -147,8 +314,10 @@ class RegisterMovieViewModel @Inject constructor(
     }
 
     fun goToNextStep(nowMillis: Long = System.currentTimeMillis()) {
+        Timber.d("RegisterMovieViewModel.goToNextStep currentStep=%s", _uiState.value.step)
         when (_uiState.value.step) {
             RegisterMovieStep.MovieSearch -> {
+                Timber.d("RegisterMovieViewModel.goToNextStep blocked reason=no_movie_selected")
                 _uiState.update { it.copy(errorMessage = "영화를 선택해 주세요.") }
             }
 
@@ -163,6 +332,7 @@ class RegisterMovieViewModel @Inject constructor(
         if (currentState.step == RegisterMovieStep.Publishing &&
             currentState.publishingStatus == PublishingStatus.Publishing
         ) {
+            Timber.d("RegisterMovieViewModel.goBack ignored during publishing")
             return true
         }
 
@@ -182,10 +352,12 @@ class RegisterMovieViewModel @Inject constructor(
                 publishingStatus = PublishingStatus.Idle
             )
         }
+        Timber.d("RegisterMovieViewModel.goBack moved from=%s to=%s", currentState.step, previousStep)
         return true
     }
 
     fun markPublishingComplete(nowMillis: Long = System.currentTimeMillis()) {
+        Timber.d("RegisterMovieViewModel.markPublishingComplete requested")
         _uiState.update {
             if (it.step == RegisterMovieStep.Publishing &&
                 it.publishingStatus == PublishingStatus.Publishing
@@ -201,24 +373,32 @@ class RegisterMovieViewModel @Inject constructor(
     }
 
     fun reset() {
+        Timber.d("RegisterMovieViewModel.reset")
         _uiState.value = RegisterMovieUiState()
     }
 
     private fun moveToTicketTemplateIfValid() {
         val state = _uiState.value
         val missingRequiredInfo = state.selectedMovie == null ||
-            state.theaterName.isBlank() ||
             state.releaseDateMillis == null ||
             state.rating == null ||
             state.review.isBlank()
 
         if (missingRequiredInfo) {
+            Timber.d(
+                "RegisterMovieViewModel.moveToTicketTemplateIfValid blocked selectedMovie=%s hasDate=%s hasRating=%s reviewBlank=%s",
+                state.selectedMovie != null,
+                state.releaseDateMillis != null,
+                state.rating != null,
+                state.review.isBlank()
+            )
             _uiState.update {
-                it.copy(errorMessage = "영화관, 관람일, 별점, 관람 후기를 입력해 주세요.")
+                it.copy(errorMessage = "관람일, 별점, 관람 후기를 입력해 주세요.")
             }
             return
         }
 
+        Timber.d("RegisterMovieViewModel.moveToTicketTemplateIfValid success")
         _uiState.update {
             it.copy(
                 step = RegisterMovieStep.TicketTemplate,
@@ -230,10 +410,12 @@ class RegisterMovieViewModel @Inject constructor(
     private fun beginPublishingIfValid(nowMillis: Long) {
         val state = _uiState.value
         if (state.selectedTicketTemplate == null) {
+            Timber.d("RegisterMovieViewModel.beginPublishingIfValid blocked reason=no_template")
             _uiState.update { it.copy(errorMessage = "티켓 디자인을 선택해 주세요.") }
             return
         }
 
+        Timber.d("RegisterMovieViewModel.beginPublishingIfValid success template=%s", state.selectedTicketTemplate.name)
         _uiState.update {
             it.copy(
                 step = RegisterMovieStep.Publishing,
@@ -250,8 +432,13 @@ data class RegisterMovieUiState(
     val step: RegisterMovieStep = RegisterMovieStep.MovieSearch,
     val searchQuery: String = "",
     val movies: List<MovieCatalogItem> = emptyList(),
+    val movieCatalogPage: Int = 0,
+    val canLoadMoreMovies: Boolean = true,
     val isMovieCatalogLoading: Boolean = false,
+    val isMovieCatalogAppendLoading: Boolean = false,
     val selectedMovie: MovieCatalogItem? = null,
+    val selectedMovieDetail: MovieDetail? = null,
+    val isMovieDetailLoading: Boolean = false,
     val title: String = "",
     val releaseDateMillis: Long? = null,
     val genre: String = "",
@@ -317,8 +504,11 @@ enum class PublishingStatus {
 }
 
 internal const val TicketPublishingDurationMillis = 2_000L
+private const val InitialMovieCatalogPage = 1
+private const val MovieCatalogPageSize = 20
 private const val MIN_RATING = 1
 private const val MAX_RATING = 5
+private const val MAX_REVIEW_LENGTH = 100
 
 internal fun publishingProgressPercent(startedAtMillis: Long?, nowMillis: Long): Int {
     if (startedAtMillis == null) return 0
@@ -331,4 +521,11 @@ internal fun publishingProgressPercent(startedAtMillis: Long?, nowMillis: Long):
 
 private fun isFutureDate(dateMillis: Long, nowMillis: Long): Boolean {
     return dateMillis > nowMillis
+}
+
+private fun todayStartMillis(): Long {
+    return java.time.LocalDate.now()
+        .atStartOfDay(java.time.ZoneId.systemDefault())
+        .toInstant()
+        .toEpochMilli()
 }

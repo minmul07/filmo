@@ -25,9 +25,22 @@ interface ApiService {
         @Field("description") description: String
     ): ResponseBody
 
+    @POST("api/auth/signup")
+    suspend fun signup(
+        @Body body: RequestBody
+    ): ResponseBody
+
     @POST("api/auth/login")
     suspend fun login(
         @Body body: RequestBody
+    ): ResponseBody
+
+    @GET("api/auth/nickname/random")
+    suspend fun fetchRandomNickname(): ResponseBody
+
+    @GET("api/users/me")
+    suspend fun fetchMe(
+        @Header("Authorization") authorization: String
     ): ResponseBody
 
     @GET("auth-test")

@@ -7,22 +7,57 @@ import org.junit.Test
 
 class InitialSetupUiStateTest {
     @Test
-    fun generatedNicknameUsesUserPrefixAndFourDigits() {
-        val nickname = generateAnonymousNickname()
+    fun initialStateShowsEntryChoiceWithEmptyForm() {
+        val state = InitialSetupUiState()
 
-        assertTrue(nickname.matches(Regex("User\\d{4}")))
-    }
-
-    @Test
-    fun blankNicknameCannotBeSaved() {
-        val state = InitialSetupUiState(nickname = "   ")
-
+        assertEquals(InitialSetupStep.EntryChoice, state.step)
+        assertEquals("", state.loginId)
+        assertEquals("", state.password)
+        assertEquals("", state.nickname)
         assertFalse(state.canSave)
     }
 
     @Test
+    fun signupRequiresLoginIdPasswordAndNickname() {
+        val state = InitialSetupUiState()
+            .toManualNickname()
+            .toLoginIdChanged("usr")
+            .toPasswordChanged("123")
+            .toNicknameChanged("시네필")
+
+        assertFalse(state.canSave)
+
+        val validState = state
+            .toLoginIdChanged("user")
+            .toPasswordChanged("1234")
+
+        assertTrue(validState.canSave)
+    }
+
+    @Test
+    fun loginRequiresLoginIdAndPassword() {
+        val state = InitialSetupUiState()
+            .toLogin()
+            .toLoginIdChanged("usr")
+            .toPasswordChanged("123")
+
+        assertFalse(state.canSave)
+
+        val validState = state
+            .toLoginIdChanged("user")
+            .toPasswordChanged("1234")
+
+        assertTrue(validState.canSave)
+    }
+
+    @Test
     fun savingStateDisablesSave() {
-        val state = InitialSetupUiState(nickname = "User1234").toSaving()
+        val state = InitialSetupUiState(
+            loginId = "user",
+            password = "1234",
+            nickname = "User1234",
+            step = InitialSetupStep.Signup
+        ).toSaving()
 
         assertFalse(state.canSave)
         assertTrue(state.isSaving)
@@ -40,18 +75,13 @@ class InitialSetupUiStateTest {
     }
 
     @Test
-    fun initialStateShowsEntryChoice() {
+    fun automaticNicknameFlowShowsRegenerateButtonAfterNicknameLoaded() {
         val state = InitialSetupUiState()
+            .toAutomaticNicknameLoading()
+            .toAutomaticNicknameLoaded("서버닉네임")
 
-        assertEquals(InitialSetupStep.EntryChoice, state.step)
-        assertFalse(state.shouldShowRegenerateButton)
-    }
-
-    @Test
-    fun automaticNicknameFlowShowsRegenerateButton() {
-        val state = InitialSetupUiState().toAutomaticNickname()
-
-        assertEquals(InitialSetupStep.AnonymousProfile, state.step)
+        assertEquals(InitialSetupStep.Signup, state.step)
+        assertEquals("서버닉네임", state.nickname)
         assertTrue(state.shouldShowRegenerateButton)
     }
 
@@ -59,7 +89,7 @@ class InitialSetupUiStateTest {
     fun manualNicknameFlowHidesRegenerateButton() {
         val state = InitialSetupUiState().toManualNickname()
 
-        assertEquals(InitialSetupStep.AnonymousProfile, state.step)
+        assertEquals(InitialSetupStep.Signup, state.step)
         assertEquals("", state.nickname)
         assertFalse(state.shouldShowRegenerateButton)
     }
@@ -67,7 +97,7 @@ class InitialSetupUiStateTest {
     @Test
     fun backToEntryChoiceReturnsToInitialPage() {
         val state = InitialSetupUiState()
-            .toAutomaticNickname()
+            .toAutomaticNicknameLoading()
             .toBackToEntryChoice()
 
         assertEquals(InitialSetupStep.EntryChoice, state.step)

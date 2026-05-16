@@ -2,6 +2,7 @@ package com.filmo.ui.movie
 
 import com.filmo.service.AppRepository
 import com.filmo.service.MovieCatalogItem
+import com.filmo.service.MovieCatalogPage
 import com.filmo.service.MovieDetail
 import com.filmo.service.MovieTicket
 import com.filmo.service.SampleItem
@@ -26,6 +27,57 @@ class RegisterMovieViewModelTest {
         assertEquals(listOf("헤어질 결심", "윤희에게", "벌새", "소공녀"), state.movies.map { it.title })
         assertEquals(false, state.isMovieCatalogLoading)
         assertEquals(null, state.errorMessage)
+    }
+
+    @Test
+    fun loadMovieCatalogRequestsFirstPageWithTwentyItems() = runBlocking {
+        val repository = FakeAppRepository()
+        val viewModel = RegisterMovieViewModel(repository)
+
+        viewModel.loadMovieCatalog()
+
+        assertEquals(listOf(1), repository.requestedMoviePages)
+        assertEquals(listOf(20), repository.requestedMovieSizes)
+    }
+
+    @Test
+    fun loadNextMovieCatalogPageAppendsRepositoryMovies() = runBlocking {
+        val repository = FakeAppRepository(
+            moviePages = mapOf(
+                1 to FakeMovies.take(2),
+                2 to FakeMovies.drop(2)
+            ),
+            hasMoreByPage = mapOf(
+                1 to true,
+                2 to false
+            )
+        )
+        val viewModel = RegisterMovieViewModel(repository)
+
+        viewModel.loadMovieCatalog()
+        viewModel.loadNextMovieCatalogPage()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf(1, 2), repository.requestedMoviePages)
+        assertEquals(listOf("헤어질 결심", "윤희에게", "벌새", "소공녀"), state.movies.map { it.title })
+        assertFalse(state.isMovieCatalogLoading)
+        assertFalse(state.isMovieCatalogAppendLoading)
+        assertFalse(state.canLoadMoreMovies)
+    }
+
+    @Test
+    fun loadNextMovieCatalogPageDoesNotRequestWhenLastPageLoaded() = runBlocking {
+        val repository = FakeAppRepository(
+            moviePages = mapOf(1 to FakeMovies),
+            hasMoreByPage = mapOf(1 to false)
+        )
+        val viewModel = RegisterMovieViewModel(repository)
+
+        viewModel.loadMovieCatalog()
+        viewModel.loadNextMovieCatalogPage()
+
+        assertEquals(listOf(1), repository.requestedMoviePages)
+        assertFalse(viewModel.uiState.value.canLoadMoreMovies)
     }
 
     @Test
@@ -183,7 +235,13 @@ class RegisterMovieViewModelTest {
         assertEquals(RegisterMovieUiState(), viewModel.uiState.value)
     }
 
-    private class FakeAppRepository : AppRepository {
+    private class FakeAppRepository(
+        private val moviePages: Map<Int, List<MovieCatalogItem>> = mapOf(1 to FakeMovies),
+        private val hasMoreByPage: Map<Int, Boolean> = mapOf(1 to false)
+    ) : AppRepository {
+        val requestedMoviePages = mutableListOf<Int>()
+        val requestedMovieSizes = mutableListOf<Int>()
+
         override suspend fun ping(): Result<String> = Result.success("pong")
 
         override suspend fun fetchItems(): Result<List<SampleItem>> = Result.success(emptyList())
@@ -205,7 +263,26 @@ class RegisterMovieViewModelTest {
             page: Int,
             size: Int
         ): Result<List<MovieCatalogItem>> {
-            return Result.success(FakeMovies)
+            requestedMoviePages += page
+            requestedMovieSizes += size
+            return Result.success(moviePages[page].orEmpty())
+        }
+
+        override suspend fun fetchMovieCatalogPage(
+            keyword: String?,
+            genre: String?,
+            year: String?,
+            page: Int,
+            size: Int
+        ): Result<MovieCatalogPage> {
+            requestedMoviePages += page
+            requestedMovieSizes += size
+            return Result.success(
+                MovieCatalogPage(
+                    items = moviePages[page].orEmpty(),
+                    hasMore = hasMoreByPage[page] ?: false
+                )
+            )
         }
 
         override suspend fun fetchMovieDetail(movieId: String): Result<MovieDetail> {

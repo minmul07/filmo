@@ -1,33 +1,72 @@
 package com.filmo.ui.setup
 
-import kotlin.random.Random
-
 data class InitialSetupUiState(
-    val nickname: String = generateAnonymousNickname(),
+    val loginId: String = "",
+    val password: String = "",
+    val nickname: String = "",
     val step: InitialSetupStep = InitialSetupStep.EntryChoice,
     val isAutomaticNickname: Boolean = false,
+    val isNicknameLoading: Boolean = false,
     val isSaving: Boolean = false,
     val isCompleted: Boolean = false,
-    val hasSaveError: Boolean = false
+    val hasSaveError: Boolean = false,
+    val hasNicknameLoadError: Boolean = false
 ) {
+    val isLoginIdValid: Boolean
+        get() = loginId.trim().length >= MIN_CREDENTIAL_LENGTH
+
+    val isPasswordValid: Boolean
+        get() = password.length >= MIN_CREDENTIAL_LENGTH
+
+    val isNicknameValid: Boolean
+        get() = nickname.trim().isNotEmpty()
+
     val canSave: Boolean
-        get() = nickname.isNotBlank() && !isSaving
+        get() {
+            if (isSaving || isNicknameLoading) return false
+
+            return when (step) {
+                InitialSetupStep.EntryChoice -> false
+                InitialSetupStep.Signup -> isLoginIdValid && isPasswordValid && isNicknameValid
+                InitialSetupStep.Login -> isLoginIdValid && isPasswordValid
+            }
+        }
 
     val shouldShowRegenerateButton: Boolean
-        get() = step == InitialSetupStep.AnonymousProfile && isAutomaticNickname
+        get() = step == InitialSetupStep.Signup && isAutomaticNickname
 
     val completionMessage: String
-        get() = "환영합니다, ${nickname}님"
+        get() = if (nickname.isBlank()) {
+            "로그인되었습니다."
+        } else {
+            "환영합니다, ${nickname}님"
+        }
+
+    fun toLoginIdChanged(loginId: String): InitialSetupUiState {
+        return copy(
+            loginId = loginId,
+            hasSaveError = false
+        )
+    }
+
+    fun toPasswordChanged(password: String): InitialSetupUiState {
+        return copy(
+            password = password,
+            hasSaveError = false
+        )
+    }
 
     fun toNicknameChanged(nickname: String): InitialSetupUiState {
         return copy(
             nickname = nickname,
-            hasSaveError = false
+            hasSaveError = false,
+            hasNicknameLoadError = false
         )
     }
 
     fun toSaving(): InitialSetupUiState {
         return copy(
+            loginId = loginId.trim(),
             nickname = nickname.trim(),
             isSaving = true,
             hasSaveError = false
@@ -49,20 +88,54 @@ data class InitialSetupUiState(
         )
     }
 
-    fun toAutomaticNickname(): InitialSetupUiState {
+    fun toAutomaticNicknameLoading(): InitialSetupUiState {
         return copy(
-            nickname = generateAnonymousNickname(),
-            step = InitialSetupStep.AnonymousProfile,
+            step = InitialSetupStep.Signup,
             isAutomaticNickname = true,
+            isNicknameLoading = true,
+            hasNicknameLoadError = false,
             hasSaveError = false
+        )
+    }
+
+    fun toAutomaticNicknameLoaded(nickname: String): InitialSetupUiState {
+        return copy(
+            nickname = nickname,
+            step = InitialSetupStep.Signup,
+            isAutomaticNickname = true,
+            isNicknameLoading = false,
+            hasNicknameLoadError = false,
+            hasSaveError = false
+        )
+    }
+
+    fun toNicknameLoadFailure(): InitialSetupUiState {
+        return copy(
+            step = InitialSetupStep.Signup,
+            isAutomaticNickname = true,
+            isNicknameLoading = false,
+            hasNicknameLoadError = true
         )
     }
 
     fun toManualNickname(): InitialSetupUiState {
         return copy(
             nickname = "",
-            step = InitialSetupStep.AnonymousProfile,
+            step = InitialSetupStep.Signup,
             isAutomaticNickname = false,
+            isNicknameLoading = false,
+            hasNicknameLoadError = false,
+            hasSaveError = false
+        )
+    }
+
+    fun toLogin(): InitialSetupUiState {
+        return copy(
+            nickname = "",
+            step = InitialSetupStep.Login,
+            isAutomaticNickname = false,
+            isNicknameLoading = false,
+            hasNicknameLoadError = false,
             hasSaveError = false
         )
     }
@@ -71,23 +144,20 @@ data class InitialSetupUiState(
         return copy(
             step = InitialSetupStep.EntryChoice,
             isAutomaticNickname = false,
+            isNicknameLoading = false,
             isSaving = false,
+            hasNicknameLoadError = false,
             hasSaveError = false
         )
+    }
+
+    companion object {
+        const val MIN_CREDENTIAL_LENGTH = 4
     }
 }
 
 enum class InitialSetupStep {
     EntryChoice,
-    AnonymousProfile
-}
-
-fun generateAnonymousNickname(
-    random: Random = Random.Default
-): String {
-    val suffix = random.nextInt(from = 0, until = 10_000)
-        .toString()
-        .padStart(length = 4, padChar = '0')
-
-    return "User$suffix"
+    Signup,
+    Login
 }

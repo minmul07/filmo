@@ -1,5 +1,6 @@
 package com.filmo.ui.movie
 
+import android.graphics.BitmapFactory
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -7,6 +8,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +26,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -30,6 +38,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
@@ -54,32 +63,46 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.filmo.BuildConfig
 import com.filmo.service.MovieCatalogItem
 import com.filmo.ui.theme.FilmoTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import timber.log.Timber
+import java.net.URL
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun RegisterMovieScreen(
@@ -111,8 +134,12 @@ fun RegisterMovieScreen(
                 viewModel.loadMovieCatalog()
             }
         },
+        onLoadNextMovies = {
+            coroutineScope.launch {
+                viewModel.loadNextMovieCatalogPage()
+            }
+        },
         onMovieClick = viewModel::selectMovie,
-        onTheaterNameChange = viewModel::updateTheaterName,
         onReleaseDateChange = viewModel::updateReleaseDateMillis,
         onRatingChange = viewModel::updateRating,
         onReviewChange = viewModel::updateReview,
@@ -139,8 +166,8 @@ private fun RegisterMovieContent(
     modifier: Modifier = Modifier,
     onSearchQueryChange: (String) -> Unit = {},
     onLoadMovies: () -> Unit = {},
+    onLoadNextMovies: () -> Unit = {},
     onMovieClick: (MovieCatalogItem) -> Unit = {},
-    onTheaterNameChange: (String) -> Unit = {},
     onReleaseDateChange: (Long?) -> Unit = {},
     onRatingChange: (Int) -> Unit = {},
     onReviewChange: (String) -> Unit = {},
@@ -151,10 +178,17 @@ private fun RegisterMovieContent(
     onCollectionClick: () -> Unit = {}
 ) {
     var isDatePickerOpen by remember { mutableStateOf(false) }
+    val posterImageCache = rememberMoviePosterBitmapSessionCache()
     val datePickerState = rememberDatePickerState(
         initialSelectedDateMillis = uiState.releaseDateMillis,
         selectableDates = rememberPastOrTodaySelectableDates()
     )
+
+    LaunchedEffect(uiState.releaseDateMillis) {
+        if (datePickerState.selectedDateMillis != uiState.releaseDateMillis) {
+            datePickerState.selectedDateMillis = uiState.releaseDateMillis
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -163,6 +197,7 @@ private fun RegisterMovieContent(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
                 .statusBarsPadding()
                 .padding(horizontal = 24.dp, vertical = 16.dp)
@@ -180,16 +215,20 @@ private fun RegisterMovieContent(
                     query = uiState.searchQuery,
                     movies = uiState.filteredMovies,
                     isLoading = uiState.isMovieCatalogLoading,
+                    isAppending = uiState.isMovieCatalogAppendLoading,
+                    canLoadMore = uiState.canLoadMoreMovies,
                     errorMessage = uiState.errorMessage,
+                    posterImageCache = posterImageCache,
                     onQueryChange = onSearchQueryChange,
                     onMovieClick = onMovieClick,
-                    onRetryClick = onLoadMovies
+                    onRetryClick = onLoadMovies,
+                    onLoadNextMovies = onLoadNextMovies
                 )
 
                 RegisterMovieStep.MovieInfo -> MovieInfoStep(
                     uiState = uiState,
                     errorMessage = uiState.errorMessage,
-                    onTheaterNameChange = onTheaterNameChange,
+                    posterImageCache = posterImageCache,
                     onReleaseDateClick = { isDatePickerOpen = true },
                     onRatingChange = onRatingChange,
                     onReviewChange = onReviewChange,
@@ -276,13 +315,22 @@ private fun RegisterMovieHeader(
             style = MaterialTheme.typography.titleLarge,
             textAlign = TextAlign.Center
         )
-        Text(
-            text = "${step.index}/4",
-            modifier = Modifier.width(48.dp),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
+        if (step == RegisterMovieStep.MovieInfo) {
+            IconButton(onClick = {}) {
+                Icon(
+                    imageVector = Icons.Filled.MoreHoriz,
+                    contentDescription = "더보기"
+                )
+            }
+        } else {
+            Text(
+                text = "${step.index}/4",
+                modifier = Modifier.width(48.dp),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
@@ -291,13 +339,39 @@ private fun MovieSearchStep(
     query: String,
     movies: List<MovieCatalogItem>,
     isLoading: Boolean,
+    isAppending: Boolean,
+    canLoadMore: Boolean,
     errorMessage: String?,
+    posterImageCache: MoviePosterBitmapSessionCache,
     onQueryChange: (String) -> Unit,
     onMovieClick: (MovieCatalogItem) -> Unit,
-    onRetryClick: () -> Unit
+    onRetryClick: () -> Unit,
+    onLoadNextMovies: () -> Unit
 ) {
+    val gridState = rememberLazyGridState()
+    val movieCount = movies.size
+    val shouldLoadMore by remember(gridState, movieCount) {
+        derivedStateOf {
+            val lastVisibleIndex = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            movieCount > 0 && lastVisibleIndex >= movieCount - MovieCatalogPrefetchThreshold
+        }
+    }
+
+    LaunchedEffect(
+        shouldLoadMore,
+        canLoadMore,
+        isLoading,
+        isAppending,
+        movies.size
+    ) {
+        if (shouldLoadMore && canLoadMore && !isLoading && !isAppending) {
+            onLoadNextMovies()
+        }
+    }
+
     StepContent(
-        action = {}
+        action = {},
+        scrollable = false
     ) {
         Text(
             text = "영화 검색",
@@ -312,7 +386,7 @@ private fun MovieSearchStep(
             value = query,
             onValueChange = onQueryChange,
             modifier = Modifier.fillMaxWidth(),
-            leadingIcon = {
+            trailingIcon = {
                 Icon(
                     imageVector = Icons.Filled.Search,
                     contentDescription = null
@@ -347,11 +421,36 @@ private fun MovieSearchStep(
             }
 
             else -> {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    movies.forEach { movie ->
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    state = gridState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(
+                        items = movies,
+                        key = { it.listKey },
+                        contentType = { "movie_result" }
+                    ) { movie ->
                         MovieResultCard(
                             movie = movie,
+                            posterImageCache = posterImageCache,
                             onClick = { onMovieClick(movie) }
+                        )
+                    }
+                    item(
+                        key = "movie_catalog_footer",
+                        span = { GridItemSpan(maxLineSpan) },
+                        contentType = "movie_catalog_footer"
+                    ) {
+                        MovieCatalogFooter(
+                            isAppending = isAppending,
+                            errorMessage = errorMessage,
+                            canLoadMore = canLoadMore,
+                            onRetryClick = onLoadNextMovies
                         )
                     }
                 }
@@ -363,34 +462,174 @@ private fun MovieSearchStep(
 @Composable
 private fun MovieResultCard(
     movie: MovieCatalogItem,
+    posterImageCache: MoviePosterBitmapSessionCache,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
             .semantics { role = Role.Button },
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        MoviePoster(
+            movie = movie,
+            imageCache = posterImageCache,
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(0.72f)
+        )
+        Text(
+            text = movie.title,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = movie.title,
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface
+            Icon(
+                imageVector = Icons.Filled.Star,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = RatingUnselectedColor
             )
             Text(
-                text = "${movie.releaseYear}  •  ${movie.director}",
-                style = MaterialTheme.typography.bodyMedium,
+                text = "4.9(21)",
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun MovieCatalogFooter(
+    isAppending: Boolean,
+    errorMessage: String?,
+    canLoadMore: Boolean,
+    onRetryClick: () -> Unit
+) {
+    when {
+        isAppending -> {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+
+        errorMessage != null -> {
+            OutlinedButton(
+                onClick = onRetryClick,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("더 불러오기")
+            }
+        }
+
+        canLoadMore -> {
+            Spacer(modifier = Modifier.height(0.dp))
+        }
+    }
+}
+
+@Composable
+private fun MoviePoster(
+    movie: MovieCatalogItem,
+    imageCache: MoviePosterBitmapSessionCache,
+    modifier: Modifier = Modifier
+) {
+    MoviePosterImage(
+        imageUrl = remember(movie.imagePath) { movie.imageUrl() },
+        title = movie.title,
+        imageCache = imageCache,
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun MoviePosterImage(
+    imageUrl: String,
+    title: String,
+    imageCache: MoviePosterBitmapSessionCache,
+    modifier: Modifier = Modifier,
+    shape: RoundedCornerShape = RoundedCornerShape(10.dp),
+    showBorder: Boolean = true
+) {
+    val bitmap by produceState<ImageBitmap?>(
+        initialValue = imageCache[imageUrl],
+        imageUrl,
+        imageCache
+    ) {
+        value = imageCache[imageUrl]
+        if (value != null) {
+            Timber.d("MoviePosterImage.loadImage memory_cache_hit urlType=%s", imageUrl.urlTypeForLog())
+            return@produceState
+        }
+        if (imageUrl.isBlank()) {
+            Timber.d("MoviePosterImage.loadImage skipped reason=blank_url titleLength=%d", title.length)
+            return@produceState
+        }
+
+        Timber.d(
+            "MoviePosterImage.loadImage request urlType=%s urlLength=%d titleLength=%d",
+            imageUrl.urlTypeForLog(),
+            imageUrl.length,
+            title.length
+        )
+
+        val loadedBitmap = withContext(Dispatchers.IO) {
+            runCatching {
+                URL(imageUrl).openStream().use { input ->
+                    BitmapFactory.decodeStream(input)?.asImageBitmap()
+                }
+            }.onSuccess { imageBitmap ->
+                Timber.d(
+                    "MoviePosterImage.loadImage success urlType=%s decoded=%s",
+                    imageUrl.urlTypeForLog(),
+                    imageBitmap != null
+                )
+            }.onFailure {
+                Timber.w(
+                    it,
+                    "MoviePosterImage.loadImage failed urlType=%s urlLength=%d",
+                    imageUrl.urlTypeForLog(),
+                    imageUrl.length
+                )
+            }.getOrNull()
+        }
+        if (loadedBitmap != null) {
+            imageCache[imageUrl] = loadedBitmap
+        }
+        value = loadedBitmap
+    }
+
+    Surface(
+        modifier = modifier.clip(shape),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = if (showBorder) {
+            BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        } else {
+            null
+        }
+    ) {
+        if (bitmap == null) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Movie,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            Image(
+                bitmap = bitmap!!,
+                contentDescription = "$title 포스터",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
             )
         }
     }
@@ -400,7 +639,7 @@ private fun MovieResultCard(
 private fun MovieInfoStep(
     uiState: RegisterMovieUiState,
     errorMessage: String?,
-    onTheaterNameChange: (String) -> Unit,
+    posterImageCache: MoviePosterBitmapSessionCache,
     onReleaseDateClick: () -> Unit,
     onRatingChange: (Int) -> Unit,
     onReviewChange: (String) -> Unit,
@@ -416,61 +655,166 @@ private fun MovieInfoStep(
             }
         }
     ) {
-        Text(
-            text = "관람 정보 입력",
-            style = MaterialTheme.typography.headlineSmall
+        MovieInfoSummary(
+            uiState = uiState,
+            posterImageCache = posterImageCache
         )
-        Text(
-            text = uiState.title,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = uiState.selectedMovie?.let { "${it.releaseYear}  •  ${it.director}" }.orEmpty(),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        OutlinedTextField(
-            value = uiState.theaterName,
-            onValueChange = onTheaterNameChange,
+        FormSectionTitle(text = "관람일")
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("영화관 *") },
-            placeholder = { Text("영화관 이름") },
-            singleLine = true
-        )
-        OutlinedTextField(
-            value = uiState.releaseDateMillis.toDateText(),
-            onValueChange = {},
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("관람일 *") },
-            placeholder = { Text("연도-월-일") },
-            readOnly = true,
-            singleLine = true,
-            supportingText = { Text("미래 날짜는 선택할 수 없어요.") }
-        )
-        OutlinedButton(
-            onClick = onReleaseDateClick,
-            modifier = Modifier.fillMaxWidth()
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text("날짜 선택")
+            DateValueBox(
+                text = uiState.releaseDateMillis.toWatchedYearText(),
+                placeholder = "연도",
+                onClick = onReleaseDateClick,
+                modifier = Modifier.weight(1f)
+            )
+            DateValueBox(
+                text = uiState.releaseDateMillis.toWatchedDateText(),
+                placeholder = "날짜",
+                onClick = onReleaseDateClick,
+                modifier = Modifier.weight(1f)
+            )
         }
         Text(
-            text = "별점 *",
+            text = "별점",
             style = MaterialTheme.typography.titleMedium
         )
         RatingSelector(
             rating = uiState.rating,
             onRatingChange = onRatingChange
         )
+        FormSectionTitle(text = "관람 후기")
         OutlinedTextField(
             value = uiState.review,
             onValueChange = onReviewChange,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("관람 후기 *") },
-            placeholder = { Text("영화에 대한 감상을 자유롭게 작성하세요...") },
-            minLines = 5
+            placeholder = {
+                Text(
+                    text = "placeholder\n공백 포함 100자",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            minLines = 5,
+            maxLines = 5,
+            shape = RoundedCornerShape(12.dp)
         )
         ErrorText(errorMessage = errorMessage)
+    }
+}
+
+@Composable
+private fun MovieInfoSummary(
+    uiState: RegisterMovieUiState,
+    posterImageCache: MoviePosterBitmapSessionCache,
+    modifier: Modifier = Modifier
+) {
+    val title = uiState.title.ifBlank { uiState.selectedMovie?.title.orEmpty() }
+    val posterUrl = remember(
+        uiState.selectedMovie?.imagePath,
+        uiState.selectedMovieDetail?.imagePath
+    ) {
+        uiState.selectedMovieDetail?.imagePath
+            ?.takeIf { it.isNotBlank() }
+            ?.toMovieImageUrl()
+            ?: uiState.selectedMovie?.imageUrl().orEmpty()
+    }
+    val releaseYear = uiState.selectedMovieDetail?.releaseYear
+        ?.takeIf { it > 0 }
+        ?: uiState.selectedMovie?.releaseYear
+    val metaText = listOfNotNull(
+        uiState.genre.takeIf { it.isNotBlank() },
+        uiState.director.takeIf { it.isNotBlank() }?.let { "$it 감독" },
+        releaseYear?.takeIf { it > 0 }?.let { "${it}년" },
+        uiState.selectedMovieDetail?.duration?.takeIf { it.isNotBlank() }
+    ).joinToString(" · ")
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        FormSectionTitle(text = "영화")
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            MoviePosterImage(
+                imageUrl = posterUrl,
+                title = title.ifBlank { "선택한 영화" },
+                imageCache = posterImageCache,
+                modifier = Modifier
+                    .width(186.dp)
+                    .height(262.dp),
+                shape = RoundedCornerShape(0.dp),
+                showBorder = false
+            )
+        }
+        Column(
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = metaText,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (uiState.isMovieDetailLoading) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+@Composable
+private fun FormSectionTitle(
+    text: String,
+    modifier: Modifier = Modifier
+) {
+    Text(
+        text = text,
+        modifier = modifier,
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onSurface
+    )
+}
+
+@Composable
+private fun DateValueBox(
+    text: String,
+    placeholder: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .height(58.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .semantics { role = Role.Button },
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text.ifBlank { placeholder },
+                style = MaterialTheme.typography.titleMedium,
+                color = if (text.isBlank()) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
@@ -482,21 +826,23 @@ private fun RatingSelector(
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         (1..5).forEach { score ->
             val selected = rating != null && score <= rating
-            OutlinedButton(
+            IconButton(
                 onClick = { onRatingChange(score) },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.size(34.dp)
             ) {
                 Icon(
                     imageVector = Icons.Filled.Star,
                     contentDescription = "$score 점",
+                    modifier = Modifier.size(34.dp),
                     tint = if (selected) {
-                        MaterialTheme.colorScheme.primary
+                        RatingSelectedColor
                     } else {
-                        MaterialTheme.colorScheme.outline
+                        RatingUnselectedColor
                     }
                 )
             }
@@ -836,16 +1182,23 @@ private fun TicketPreview(
 @Composable
 private fun StepContent(
     action: @Composable () -> Unit,
+    scrollable: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState()),
+            modifier = if (scrollable) {
+                Modifier
+                    .weight(1f)
+                    .verticalScroll(scrollState)
+            } else {
+                Modifier.weight(1f)
+            },
             verticalArrangement = Arrangement.spacedBy(16.dp),
             content = content
         )
@@ -949,6 +1302,84 @@ private fun Long?.toDateText(): String {
     }.orEmpty()
 }
 
+private fun Long?.toWatchedYearText(): String {
+    return this?.let { millis ->
+        Instant.ofEpochMilli(millis)
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
+            .format(DateTimeFormatter.ofPattern("yyyy년", Locale.KOREAN))
+    }.orEmpty()
+}
+
+private fun Long?.toWatchedDateText(): String {
+    return this?.let { millis ->
+        Instant.ofEpochMilli(millis)
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
+            .format(DateTimeFormatter.ofPattern("MM월 dd일(E)", Locale.KOREAN))
+    }.orEmpty()
+}
+
+@Composable
+private fun rememberMoviePosterBitmapSessionCache(): MoviePosterBitmapSessionCache {
+    return remember {
+        MoviePosterBitmapSessionCache()
+    }
+}
+
+@Stable
+private class MoviePosterBitmapSessionCache {
+    private val cache = mutableMapOf<String, ImageBitmap>()
+
+    operator fun get(imageUrl: String): ImageBitmap? {
+        return if (imageUrl.isBlank()) {
+            null
+        } else {
+            cache.get(imageUrl)
+        }
+    }
+
+    operator fun set(imageUrl: String, bitmap: ImageBitmap) {
+        if (imageUrl.isNotBlank()) {
+            cache.put(imageUrl, bitmap)
+        }
+    }
+}
+
+private val MovieCatalogItem.listKey: String
+    get() = id.ifBlank { "$title-$releaseYear-$director" }
+
+private fun MovieCatalogItem.imageUrl(): String {
+    return imagePath.toMovieImageUrl()
+}
+
+private fun String.toMovieImageUrl(): String {
+    val path = trim()
+    if (path.isBlank()) {
+        Timber.d("MovieImageUrl.resolve skipped reason=blank_path")
+        return ""
+    }
+    if (path.startsWith("http://") || path.startsWith("https://")) {
+        Timber.d("MovieImageUrl.resolve absolute pathLength=%d", path.length)
+        return path
+    }
+
+    Timber.d("MovieImageUrl.resolve api pathLength=%d", path.length)
+    return "${BuildConfig.API_BASE_URL.trimEnd('/')}/api/movies/image/${path.trimStart('/')}"
+}
+
+private fun String.urlTypeForLog(): String {
+    return when {
+        startsWith("https://") -> "https"
+        startsWith("http://") -> "http"
+        else -> "relative_or_unknown"
+    }
+}
+
+private val RatingSelectedColor = Color(0xFF7887CF)
+private val RatingUnselectedColor = Color(0xFFDCDCDC)
+private const val MovieCatalogPrefetchThreshold = 5
+
 @Preview(showBackground = true)
 @Composable
 private fun RegisterMovieContentPreview() {
@@ -956,6 +1387,14 @@ private fun RegisterMovieContentPreview() {
         RegisterMovieContent(
             uiState = RegisterMovieUiState(
                 step = RegisterMovieStep.MovieInfo,
+                selectedMovie = MovieCatalogItem(
+                    id = "preview-movie",
+                    title = "윤희에게",
+                    releaseYear = 2019,
+                    director = "임대형",
+                    genre = "드라마",
+                    imagePath = ""
+                ),
                 title = "윤희에게",
                 releaseDateMillis = 1_609_459_200_000L,
                 genre = "드라마",

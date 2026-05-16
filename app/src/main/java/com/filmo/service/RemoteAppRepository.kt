@@ -2,21 +2,104 @@ package com.filmo.service
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import timber.log.Timber
 import javax.inject.Inject
 
 class RemoteAppRepository @Inject constructor(
     private val apiService: ApiService
 ) : AppRepository {
+    override suspend fun signUp(request: SignupRequest): Result<AuthSession> = runCatching {
+        Timber.d(
+            "RemoteAppRepository.signUp request loginIdLength=%d nicknameLength=%d",
+            request.loginId.length,
+            request.nickname.length
+        )
+        val response = apiService.signup(
+            buildJsonRequestBody {
+                put("loginId", request.loginId)
+                put("password", request.password)
+                put("nickname", request.nickname)
+            }
+        )
+        val accessToken = JsonParser.parseToJsonElement(response.string())
+            .jsonObject
+            .dataObject()
+            .string("accessToken")
+        AuthSession(
+            loginId = request.loginId,
+            nickname = request.nickname,
+            accessToken = accessToken
+        )
+    }.onSuccess {
+        Timber.d("RemoteAppRepository.signUp success loginIdLength=%d", request.loginId.length)
+    }.onFailure {
+        Timber.w(it, "RemoteAppRepository.signUp failed")
+    }
+
+    override suspend fun login(request: LoginRequest): Result<AuthSession> = runCatching {
+        Timber.d("RemoteAppRepository.login request loginIdLength=%d", request.loginId.length)
+        val response = apiService.login(
+            buildJsonRequestBody {
+                put("loginId", request.loginId)
+                put("password", request.password)
+            }
+        )
+        val accessToken = JsonParser.parseToJsonElement(response.string())
+            .jsonObject
+            .dataObject()
+            .string("accessToken")
+        val me = JsonParser.parseToJsonElement(
+            apiService.fetchMe("Bearer $accessToken").string()
+        )
+            .jsonObject
+            .dataObject()
+        AuthSession(
+            loginId = me.string("loginId").ifBlank { request.loginId },
+            nickname = me.string("nickname"),
+            accessToken = accessToken
+        )
+    }.onSuccess {
+        Timber.d("RemoteAppRepository.login success loginIdLength=%d", request.loginId.length)
+    }.onFailure {
+        Timber.w(it, "RemoteAppRepository.login failed")
+    }
+
+    override suspend fun fetchRandomNickname(): Result<String> = runCatching {
+        Timber.d("RemoteAppRepository.fetchRandomNickname request")
+        JsonParser.parseToJsonElement(apiService.fetchRandomNickname().string())
+            .jsonObject
+            .dataObject()
+            .string("nickname")
+            .ifBlank { error("Missing nickname") }
+    }.onSuccess { nickname ->
+        Timber.d("RemoteAppRepository.fetchRandomNickname success nicknameLength=%d", nickname.length)
+    }.onFailure {
+        Timber.w(it, "RemoteAppRepository.fetchRandomNickname failed")
+    }
+
     override suspend fun ping(): Result<String> = runCatching {
+        Timber.d("RemoteAppRepository.ping request")
         apiService.ping().string()
+    }.onSuccess { response ->
+        Timber.d("RemoteAppRepository.ping success responseLength=%d", response.length)
+    }.onFailure {
+        Timber.w(it, "RemoteAppRepository.ping failed")
     }
 
     override suspend fun fetchItems(): Result<List<SampleItem>> = runCatching {
+        Timber.d("RemoteAppRepository.fetchItems request")
         val responseText = apiService.fetchItems().string()
         listOf(
             SampleItem(
@@ -25,9 +108,18 @@ class RemoteAppRepository @Inject constructor(
                 description = responseText
             )
         )
+    }.onSuccess { items ->
+        Timber.d("RemoteAppRepository.fetchItems success itemCount=%d", items.size)
+    }.onFailure {
+        Timber.w(it, "RemoteAppRepository.fetchItems failed")
     }
 
     override suspend fun submitItem(request: SampleItemRequest): Result<SampleItem> = runCatching {
+        Timber.d(
+            "RemoteAppRepository.submitItem request titleLength=%d descriptionLength=%d",
+            request.title.length,
+            request.description.length
+        )
         val responseText = apiService.submitItem(
             title = request.title,
             description = request.description
@@ -37,6 +129,10 @@ class RemoteAppRepository @Inject constructor(
             title = request.title,
             description = responseText.ifBlank { request.description }
         )
+    }.onSuccess { item ->
+        Timber.d("RemoteAppRepository.submitItem success itemId=%s", item.id)
+    }.onFailure {
+        Timber.w(it, "RemoteAppRepository.submitItem failed")
     }
 
     override suspend fun fetchMovieCatalog(
@@ -45,7 +141,29 @@ class RemoteAppRepository @Inject constructor(
         year: String?,
         page: Int,
         size: Int
-    ): Result<List<MovieCatalogItem>> = runCatching {
+    ): Result<List<MovieCatalogItem>> = fetchMovieCatalogPage(
+        keyword = keyword,
+        genre = genre,
+        year = year,
+        page = page,
+        size = size
+    ).map { it.items }
+
+    override suspend fun fetchMovieCatalogPage(
+        keyword: String?,
+        genre: String?,
+        year: String?,
+        page: Int,
+        size: Int
+    ): Result<MovieCatalogPage> = runCatching {
+        Timber.d(
+            "RemoteAppRepository.fetchMovieCatalogPage request keywordBlank=%s genreBlank=%s yearBlank=%s page=%d size=%d",
+            keyword.isNullOrBlank(),
+            genre.isNullOrBlank(),
+            year.isNullOrBlank(),
+            page,
+            size
+        )
         val response = apiService.fetchMovies(
             keyword = keyword,
             genre = genre,
@@ -53,63 +171,139 @@ class RemoteAppRepository @Inject constructor(
             page = page,
             size = size
         )
-        JsonParser.parseToJsonElement(response.string())
+        val data = JsonParser.parseToJsonElement(response.string())
             .jsonObject
             .dataObject()
+        val items = data
             .array("content")
             .map { it.jsonObject.toMovieCatalogItem() }
+        MovieCatalogPage(
+            items = items,
+            hasMore = data.hasMore(itemsLoaded = items.size, requestedSize = size)
+        )
+    }.onSuccess { pageResult ->
+        Timber.d(
+            "RemoteAppRepository.fetchMovieCatalogPage success itemCount=%d hasMore=%s",
+            pageResult.items.size,
+            pageResult.hasMore
+        )
+    }.onFailure {
+        Timber.w(it, "RemoteAppRepository.fetchMovieCatalogPage failed page=%d size=%d", page, size)
     }
 
     override suspend fun fetchMovieDetail(movieId: String): Result<MovieDetail> = runCatching {
+        Timber.d("RemoteAppRepository.fetchMovieDetail request movieId=%s", movieId)
         val seq = movieId.toLongOrNull() ?: error("Invalid movie id")
         JsonParser.parseToJsonElement(apiService.fetchMovie(seq).string())
             .jsonObject
             .dataObject()
             .toMovieDetail()
+    }.onSuccess { detail ->
+        Timber.d("RemoteAppRepository.fetchMovieDetail success movieId=%s detailId=%s", movieId, detail.id)
+    }.onFailure {
+        Timber.w(it, "RemoteAppRepository.fetchMovieDetail failed movieId=%s", movieId)
     }
 
     override suspend fun fetchTheaters(
         keyword: String?,
         page: Int,
         size: Int
-    ): Result<List<Theater>> = runCatching {
-        JsonParser.parseToJsonElement(
-            apiService.fetchTheaters(
-                keyword = keyword,
-                page = page,
-                size = size
-            ).string()
+    ): Result<List<Theater>> = fetchTheaterPage(
+        keyword = keyword,
+        page = page,
+        size = size
+    ).map { it.items }
+
+    override suspend fun fetchTheaterPage(
+        keyword: String?,
+        page: Int,
+        size: Int
+    ): Result<TheaterPage> = runCatching {
+        Timber.d(
+            "RemoteAppRepository.fetchTheaterPage request keywordBlank=%s page=%d size=%d",
+            keyword.isNullOrBlank(),
+            page,
+            size
         )
+        val response = apiService.fetchTheaters(
+            keyword = keyword,
+            page = page,
+            size = size
+        )
+        val data = JsonParser.parseToJsonElement(response.string())
             .jsonObject
             .dataObject()
+        val items = data
             .array("content")
             .map { it.jsonObject.toTheater() }
+        TheaterPage(
+            items = items,
+            hasMore = data.hasMore(itemsLoaded = items.size, requestedSize = size)
+        )
+    }.onSuccess { pageResult ->
+        Timber.d(
+            "RemoteAppRepository.fetchTheaterPage success itemCount=%d hasMore=%s",
+            pageResult.items.size,
+            pageResult.hasMore
+        )
+    }.onFailure {
+        Timber.w(it, "RemoteAppRepository.fetchTheaterPage failed page=%d size=%d", page, size)
     }
 
     override suspend fun fetchTheater(theaterId: String): Result<Theater> = runCatching {
+        Timber.d("RemoteAppRepository.fetchTheater request theaterId=%s", theaterId)
         JsonParser.parseToJsonElement(apiService.fetchTheater(theaterId).string())
             .jsonObject
             .dataObject()
             .toTheater()
+    }.onSuccess { theater ->
+        Timber.d("RemoteAppRepository.fetchTheater success theaterId=%s", theater.id)
+    }.onFailure {
+        Timber.w(it, "RemoteAppRepository.fetchTheater failed theaterId=%s", theaterId)
     }
 
     override suspend fun fetchTicketCollection(): Result<TicketCollection> = runCatching {
+        Timber.d("RemoteAppRepository.fetchTicketCollection request")
         error("Ticket collection API is not specified in Swagger.")
+    }.onFailure {
+        Timber.w(it, "RemoteAppRepository.fetchTicketCollection failed")
     }
 
     override suspend fun updateMyTicket(request: UpdateTicketRequest): Result<MovieTicket> = runCatching {
+        Timber.d(
+            "RemoteAppRepository.updateMyTicket request ticketId=%s theaterLength=%d watchedDateLength=%d rating=%d reviewLength=%d",
+            request.ticketId,
+            request.theaterName.length,
+            request.watchedDate.length,
+            request.rating,
+            request.review.length
+        )
         error("Ticket update API is not specified in Swagger.")
+    }.onFailure {
+        Timber.w(it, "RemoteAppRepository.updateMyTicket failed ticketId=%s", request.ticketId)
     }
 
     override suspend fun deleteMyTicket(ticketId: String): Result<Unit> = runCatching {
+        Timber.d("RemoteAppRepository.deleteMyTicket request ticketId=%s", ticketId)
         error("Ticket delete API is not specified in Swagger.")
+    }.onFailure {
+        Timber.w(it, "RemoteAppRepository.deleteMyTicket failed ticketId=%s", ticketId)
     }
 
     override suspend fun removeSavedTicket(ticketId: String): Result<Unit> = runCatching {
+        Timber.d("RemoteAppRepository.removeSavedTicket request ticketId=%s", ticketId)
         error("Saved ticket delete API is not specified in Swagger.")
+    }.onFailure {
+        Timber.w(it, "RemoteAppRepository.removeSavedTicket failed ticketId=%s", ticketId)
     }
 
     private fun JsonObject.toMovieCatalogItem(): MovieCatalogItem {
+        val imagePath = string("imagePath")
+        Timber.d(
+            "RemoteAppRepository.toMovieCatalogItem movieId=%s rawImagePath=%s",
+            string("seq"),
+            imagePath
+        )
         return MovieCatalogItem(
             id = string("seq"),
             title = string("korTitle"),
@@ -117,11 +311,17 @@ class RemoteAppRepository @Inject constructor(
             director = string("director"),
             genre = string("genreName"),
             englishTitle = string("engTitle"),
-            imagePath = string("imagePath")
+            imagePath = imagePath
         )
     }
 
     private fun JsonObject.toMovieDetail(): MovieDetail {
+        val imagePath = string("imagePath")
+        Timber.d(
+            "RemoteAppRepository.toMovieDetail movieId=%s rawImagePath=%s",
+            string("seq"),
+            imagePath
+        )
         return MovieDetail(
             id = string("seq"),
             title = string("korTitle"),
@@ -132,7 +332,7 @@ class RemoteAppRepository @Inject constructor(
             genre = string("genreName"),
             companyName = string("companyNm"),
             distributorName = string("distributorNm"),
-            imagePath = string("imagePath"),
+            imagePath = imagePath,
             duration = string("duration"),
             rating = string("rating"),
             colorType = string("colorType"),
@@ -166,6 +366,22 @@ class RemoteAppRepository @Inject constructor(
         return this[name]?.jsonArray ?: JsonArray(emptyList())
     }
 
+    private fun JsonObject.hasMore(itemsLoaded: Int, requestedSize: Int): Boolean {
+        val hasNext = booleanOrNull("hasNext")
+        if (hasNext != null) return hasNext
+
+        val last = booleanOrNull("last")
+        if (last != null) return !last
+
+        return itemsLoaded >= requestedSize.coerceAtLeast(1)
+    }
+
+    private fun JsonObject.booleanOrNull(name: String): Boolean? {
+        val value = this[name] ?: return null
+        if (value is JsonNull) return null
+        return value.jsonPrimitive.booleanOrNull
+    }
+
     private fun JsonObject.string(name: String): String {
         return this[name]?.jsonPrimitive?.contentOrNull.orEmpty()
     }
@@ -179,6 +395,29 @@ class RemoteAppRepository @Inject constructor(
     }
 
     private companion object {
+        val JsonContentType = "application/json; charset=utf-8".toMediaType()
         val JsonParser = Json { ignoreUnknownKeys = true }
+
+        fun buildJsonRequestBody(builder: JsonObjectBuilderScope.() -> Unit): RequestBody {
+            val scope = JsonObjectBuilderScope()
+            scope.builder()
+            return scope.build().toString().toRequestBody(JsonContentType)
+        }
+    }
+}
+
+private class JsonObjectBuilderScope {
+    private val entries = mutableMapOf<String, String>()
+
+    fun put(key: String, value: String) {
+        entries[key] = value
+    }
+
+    fun build(): JsonObject {
+        return buildJsonObject {
+            entries.forEach { (key, value) ->
+                put(key, value)
+            }
+        }
     }
 }

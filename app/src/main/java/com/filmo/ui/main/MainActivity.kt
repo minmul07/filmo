@@ -52,6 +52,9 @@ class MainActivity : ComponentActivity() {
                         onManualNicknameClick = mainViewModel::startManualNicknameSetup,
                         onRegenerateNicknameClick = mainViewModel::startAutomaticNicknameSetup,
                         onBackToEntryChoice = mainViewModel::backToInitialSetupEntryChoice,
+                        onLoginClick = mainViewModel::startLogin,
+                        onLoginIdChange = mainViewModel::updateInitialSetupLoginId,
+                        onPasswordChange = mainViewModel::updateInitialSetupPassword,
                         onNicknameChange = mainViewModel::updateInitialSetupNickname,
                         onSaveClick = mainViewModel::saveInitialSetupNickname
                     )
@@ -77,6 +80,9 @@ private fun FilmoAppNavHost(
     onManualNicknameClick: () -> Unit,
     onRegenerateNicknameClick: () -> Unit,
     onBackToEntryChoice: () -> Unit,
+    onLoginClick: () -> Unit,
+    onLoginIdChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
     onNicknameChange: (String) -> Unit,
     onSaveClick: () -> Unit
 ) {
@@ -111,6 +117,9 @@ private fun FilmoAppNavHost(
                     onManualNicknameClick = onManualNicknameClick,
                     onRegenerateNicknameClick = onRegenerateNicknameClick,
                     onBackToEntryChoice = onBackToEntryChoice,
+                    onLoginClick = onLoginClick,
+                    onLoginIdChange = onLoginIdChange,
+                    onPasswordChange = onPasswordChange,
                     onNicknameChange = onNicknameChange,
                     onSaveClick = onSaveClick,
                     onFinished = rootBackStack::replaceWithMain

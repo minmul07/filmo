@@ -46,6 +46,10 @@ class RemoteDebugAuthTestClientTest {
             error("Not needed in this test")
         }
 
+        override suspend fun signup(body: RequestBody): ResponseBody {
+            error("Not needed in this test")
+        }
+
         override suspend fun login(body: RequestBody): ResponseBody {
             val buffer = Buffer()
             body.writeTo(buffer)
@@ -59,6 +63,14 @@ class RemoteDebugAuthTestClientTest {
                   }
                 }
             """.trimIndent().toJsonResponseBody()
+        }
+
+        override suspend fun fetchRandomNickname(): ResponseBody {
+            error("Not needed in this test")
+        }
+
+        override suspend fun fetchMe(authorization: String): ResponseBody {
+            error("Not needed in this test")
         }
 
         override suspend fun authTest(authorization: String): ResponseBody {

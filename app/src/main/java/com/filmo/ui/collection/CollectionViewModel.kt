@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import timber.log.Timber
 import javax.inject.Inject
 
 @HiltViewModel
@@ -19,8 +20,12 @@ class CollectionViewModel @Inject constructor(
     val uiState: StateFlow<CollectionUiState> = _uiState.asStateFlow()
 
     suspend fun loadTickets() {
-        if (_uiState.value.isLoading) return
+        if (_uiState.value.isLoading) {
+            Timber.d("CollectionViewModel.loadTickets ignored: already loading")
+            return
+        }
 
+        Timber.d("CollectionViewModel.loadTickets request")
         _uiState.update {
             it.copy(
                 isLoading = true,
@@ -29,6 +34,17 @@ class CollectionViewModel @Inject constructor(
         }
 
         val result = appRepository.fetchTicketCollection()
+        result
+            .onSuccess { collection ->
+                Timber.d(
+                    "CollectionViewModel.loadTickets success myCount=%d savedCount=%d",
+                    collection.myTickets.size,
+                    collection.savedTickets.size
+                )
+            }
+            .onFailure {
+                Timber.w(it, "CollectionViewModel.loadTickets failed")
+            }
         _uiState.update { state ->
             result.fold(
                 onSuccess = { collection ->
@@ -50,6 +66,7 @@ class CollectionViewModel @Inject constructor(
     }
 
     fun selectTab(tab: CollectionTicketTab) {
+        Timber.d("CollectionViewModel.selectTab tab=%s", tab.name)
         _uiState.update {
             it.copy(
                 selectedTab = tab,
@@ -60,6 +77,7 @@ class CollectionViewModel @Inject constructor(
     }
 
     fun requestDeleteTicket(ticketId: String) {
+        Timber.d("CollectionViewModel.requestDeleteTicket ticketId=%s", ticketId)
         _uiState.update { state ->
             state.copy(
                 pendingDeleteTicket = state.findTicket(ticketId),
@@ -69,16 +87,29 @@ class CollectionViewModel @Inject constructor(
     }
 
     fun dismissDeleteDialog() {
+        Timber.d("CollectionViewModel.dismissDeleteDialog")
         _uiState.update { it.copy(pendingDeleteTicket = null) }
     }
 
     suspend fun confirmDeleteTicket() {
         val ticket = _uiState.value.pendingDeleteTicket ?: return
+        Timber.d(
+            "CollectionViewModel.confirmDeleteTicket request ticketId=%s ownedByMe=%s",
+            ticket.id,
+            ticket.ownedByMe
+        )
         val result = if (ticket.ownedByMe) {
             appRepository.deleteMyTicket(ticket.id)
         } else {
             appRepository.removeSavedTicket(ticket.id)
         }
+        result
+            .onSuccess {
+                Timber.d("CollectionViewModel.confirmDeleteTicket success ticketId=%s", ticket.id)
+            }
+            .onFailure {
+                Timber.w(it, "CollectionViewModel.confirmDeleteTicket failed ticketId=%s", ticket.id)
+            }
 
         _uiState.update { state ->
             result.fold(
@@ -101,8 +132,12 @@ class CollectionViewModel @Inject constructor(
     }
 
     fun startEditingTicket(ticketId: String) {
+        Timber.d("CollectionViewModel.startEditingTicket ticketId=%s", ticketId)
         _uiState.update { state ->
             val ticket = state.myTickets.firstOrNull { it.id == ticketId }
+            if (ticket == null) {
+                Timber.d("CollectionViewModel.startEditingTicket ticket not found ticketId=%s", ticketId)
+            }
             state.copy(
                 editingTicket = ticket?.toEditingTicket(),
                 errorMessage = if (ticket == null) "수정할 티켓을 찾지 못했어요." else null
@@ -111,10 +146,16 @@ class CollectionViewModel @Inject constructor(
     }
 
     fun cancelEditingTicket() {
+        Timber.d("CollectionViewModel.cancelEditingTicket")
         _uiState.update { it.copy(editingTicket = null, errorMessage = null) }
     }
 
     fun updateEditingTheaterName(theaterName: String) {
+        Timber.d(
+            "CollectionViewModel.updateEditingTheaterName input length=%d blank=%s",
+            theaterName.length,
+            theaterName.isBlank()
+        )
         _uiState.update { state ->
             state.copy(
                 editingTicket = state.editingTicket?.copy(theaterName = theaterName),
@@ -124,6 +165,11 @@ class CollectionViewModel @Inject constructor(
     }
 
     fun updateEditingWatchedDate(watchedDate: String) {
+        Timber.d(
+            "CollectionViewModel.updateEditingWatchedDate input length=%d blank=%s",
+            watchedDate.length,
+            watchedDate.isBlank()
+        )
         _uiState.update { state ->
             state.copy(
                 editingTicket = state.editingTicket?.copy(watchedDate = watchedDate),
@@ -133,6 +179,7 @@ class CollectionViewModel @Inject constructor(
     }
 
     fun updateEditingRating(rating: Int) {
+        Timber.d("CollectionViewModel.updateEditingRating input=%d coerced=%d", rating, rating.coerceIn(MIN_RATING, MAX_RATING))
         _uiState.update { state ->
             state.copy(
                 editingTicket = state.editingTicket?.copy(rating = rating.coerceIn(MIN_RATING, MAX_RATING)),
@@ -142,6 +189,7 @@ class CollectionViewModel @Inject constructor(
     }
 
     fun updateEditingReview(review: String) {
+        Timber.d("CollectionViewModel.updateEditingReview input length=%d", review.length)
         _uiState.update { state ->
             state.copy(
                 editingTicket = state.editingTicket?.copy(review = review),
@@ -152,10 +200,17 @@ class CollectionViewModel @Inject constructor(
 
     suspend fun saveEditedTicket() {
         val editingTicket = _uiState.value.editingTicket ?: return
+        Timber.d("CollectionViewModel.saveEditedTicket request ticketId=%s", editingTicket.id)
         if (editingTicket.theaterName.isBlank() ||
             editingTicket.watchedDate.isBlank() ||
             editingTicket.review.isBlank()
         ) {
+            Timber.d(
+                "CollectionViewModel.saveEditedTicket blocked theaterBlank=%s watchedDateBlank=%s reviewBlank=%s",
+                editingTicket.theaterName.isBlank(),
+                editingTicket.watchedDate.isBlank(),
+                editingTicket.review.isBlank()
+            )
             _uiState.update {
                 it.copy(errorMessage = "영화관, 관람일, 관람 후기를 입력해 주세요.")
             }
@@ -171,6 +226,13 @@ class CollectionViewModel @Inject constructor(
                 review = editingTicket.review
             )
         )
+        result
+            .onSuccess { updatedTicket ->
+                Timber.d("CollectionViewModel.saveEditedTicket success ticketId=%s", updatedTicket.id)
+            }
+            .onFailure {
+                Timber.w(it, "CollectionViewModel.saveEditedTicket failed ticketId=%s", editingTicket.id)
+            }
 
         _uiState.update { state ->
             result.fold(

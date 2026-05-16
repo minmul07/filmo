@@ -1,6 +1,7 @@
 package com.filmo.service
 
 import kotlinx.coroutines.delay
+import timber.log.Timber
 import javax.inject.Inject
 
 class MockAppRepository @Inject constructor() : AppRepository {
@@ -166,11 +167,35 @@ class MockAppRepository @Inject constructor() : AppRepository {
         )
     )
 
-    override suspend fun ping(): Result<String> = withMockDelay {
+    override suspend fun ping(): Result<String> = withMockDelay("ping") {
         "mock-pong"
     }
 
-    override suspend fun fetchItems(): Result<List<SampleItem>> = withMockDelay {
+    override suspend fun signUp(request: SignupRequest): Result<AuthSession> = withMockDelay(
+        "signUp(loginIdLength=${request.loginId.length}, nicknameLength=${request.nickname.length})"
+    ) {
+        AuthSession(
+            loginId = request.loginId,
+            nickname = request.nickname,
+            accessToken = "mock-signup-token-${request.loginId}"
+        )
+    }
+
+    override suspend fun login(request: LoginRequest): Result<AuthSession> = withMockDelay(
+        "login(loginIdLength=${request.loginId.length})"
+    ) {
+        AuthSession(
+            loginId = request.loginId,
+            nickname = "모크사용자",
+            accessToken = "mock-login-token-${request.loginId}"
+        )
+    }
+
+    override suspend fun fetchRandomNickname(): Result<String> = withMockDelay("fetchRandomNickname") {
+        "시네필여행자${(100..999).random()}"
+    }
+
+    override suspend fun fetchItems(): Result<List<SampleItem>> = withMockDelay("fetchItems") {
         listOf(
             SampleItem(
                 id = "mock-1",
@@ -185,7 +210,9 @@ class MockAppRepository @Inject constructor() : AppRepository {
         )
     }
 
-    override suspend fun submitItem(request: SampleItemRequest): Result<SampleItem> = withMockDelay {
+    override suspend fun submitItem(request: SampleItemRequest): Result<SampleItem> = withMockDelay(
+        "submitItem(titleLength=${request.title.length}, descriptionLength=${request.description.length})"
+    ) {
         SampleItem(
             id = "mock-created",
             title = request.title,
@@ -199,7 +226,9 @@ class MockAppRepository @Inject constructor() : AppRepository {
         year: String?,
         page: Int,
         size: Int
-    ): Result<List<MovieCatalogItem>> = withMockDelay {
+    ): Result<List<MovieCatalogItem>> = withMockDelay(
+        "fetchMovieCatalog(keywordBlank=${keyword.isNullOrBlank()}, genreBlank=${genre.isNullOrBlank()}, yearBlank=${year.isNullOrBlank()}, page=$page, size=$size)"
+    ) {
         movieDetails
             .filter { movie ->
                 keyword.isNullOrBlank() ||
@@ -213,12 +242,12 @@ class MockAppRepository @Inject constructor() : AppRepository {
             .filter { movie ->
                 year.isNullOrBlank() || movie.releaseYear.toString() == year
             }
-            .drop(page.coerceAtLeast(0) * size.coerceAtLeast(1))
+            .drop((page - 1).coerceAtLeast(0) * size.coerceAtLeast(1))
             .take(size.coerceAtLeast(1))
             .map { it.toCatalogItem() }
     }
 
-    override suspend fun fetchMovieDetail(movieId: String): Result<MovieDetail> = withMockDelay {
+    override suspend fun fetchMovieDetail(movieId: String): Result<MovieDetail> = withMockDelay("fetchMovieDetail(movieId=$movieId)") {
         movieDetails.firstOrNull { it.id == movieId }
             ?: error("Movie not found")
     }
@@ -227,7 +256,9 @@ class MockAppRepository @Inject constructor() : AppRepository {
         keyword: String?,
         page: Int,
         size: Int
-    ): Result<List<Theater>> = withMockDelay {
+    ): Result<List<Theater>> = withMockDelay(
+        "fetchTheaters(keywordBlank=${keyword.isNullOrBlank()}, page=$page, size=$size)"
+    ) {
         theaters
             .filter { theater ->
                 keyword.isNullOrBlank() ||
@@ -238,19 +269,21 @@ class MockAppRepository @Inject constructor() : AppRepository {
             .take(size.coerceAtLeast(1))
     }
 
-    override suspend fun fetchTheater(theaterId: String): Result<Theater> = withMockDelay {
+    override suspend fun fetchTheater(theaterId: String): Result<Theater> = withMockDelay("fetchTheater(theaterId=$theaterId)") {
         theaters.firstOrNull { it.id == theaterId }
             ?: error("Theater not found")
     }
 
-    override suspend fun fetchTicketCollection(): Result<TicketCollection> = withMockDelay {
+    override suspend fun fetchTicketCollection(): Result<TicketCollection> = withMockDelay("fetchTicketCollection") {
         TicketCollection(
             myTickets = myTickets.toList(),
             savedTickets = savedTickets.toList()
         )
     }
 
-    override suspend fun updateMyTicket(request: UpdateTicketRequest): Result<MovieTicket> = withMockDelay {
+    override suspend fun updateMyTicket(request: UpdateTicketRequest): Result<MovieTicket> = withMockDelay(
+        "updateMyTicket(ticketId=${request.ticketId}, theaterLength=${request.theaterName.length}, watchedDateLength=${request.watchedDate.length}, rating=${request.rating}, reviewLength=${request.review.length})"
+    ) {
         val index = myTickets.indexOfFirst { it.id == request.ticketId }
         require(index >= 0) { "Ticket not found" }
 
@@ -264,19 +297,26 @@ class MockAppRepository @Inject constructor() : AppRepository {
         updatedTicket
     }
 
-    override suspend fun deleteMyTicket(ticketId: String): Result<Unit> = withMockDelay {
+    override suspend fun deleteMyTicket(ticketId: String): Result<Unit> = withMockDelay("deleteMyTicket(ticketId=$ticketId)") {
         myTickets.removeAll { it.id == ticketId }
         Unit
     }
 
-    override suspend fun removeSavedTicket(ticketId: String): Result<Unit> = withMockDelay {
+    override suspend fun removeSavedTicket(ticketId: String): Result<Unit> = withMockDelay("removeSavedTicket(ticketId=$ticketId)") {
         savedTickets.removeAll { it.id == ticketId }
         Unit
     }
 
-    private suspend fun <T> withMockDelay(block: () -> T): Result<T> = runCatching {
-        delay(MOCK_DELAY_MILLIS)
-        block()
+    private suspend fun <T> withMockDelay(operation: String, block: () -> T): Result<T> {
+        Timber.d("MockAppRepository.%s request", operation)
+        return runCatching {
+            delay(MOCK_DELAY_MILLIS)
+            block()
+        }.onSuccess {
+            Timber.d("MockAppRepository.%s success", operation)
+        }.onFailure {
+            Timber.w(it, "MockAppRepository.%s failed", operation)
+        }
     }
 
     private fun MovieDetail.toCatalogItem(): MovieCatalogItem {

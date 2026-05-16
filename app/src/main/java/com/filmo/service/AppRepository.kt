@@ -1,6 +1,18 @@
 package com.filmo.service
 
 interface AppRepository {
+    suspend fun signUp(request: SignupRequest): Result<AuthSession> {
+        return Result.failure(UnsupportedOperationException("Auth API is not implemented."))
+    }
+
+    suspend fun login(request: LoginRequest): Result<AuthSession> {
+        return Result.failure(UnsupportedOperationException("Auth API is not implemented."))
+    }
+
+    suspend fun fetchRandomNickname(): Result<String> {
+        return Result.failure(UnsupportedOperationException("Random nickname API is not implemented."))
+    }
+
     suspend fun ping(): Result<String>
 
     suspend fun fetchItems(): Result<List<SampleItem>>
@@ -11,9 +23,30 @@ interface AppRepository {
         keyword: String? = null,
         genre: String? = null,
         year: String? = null,
-        page: Int = 0,
+        page: Int = 1,
         size: Int = 20
     ): Result<List<MovieCatalogItem>>
+
+    suspend fun fetchMovieCatalogPage(
+        keyword: String? = null,
+        genre: String? = null,
+        year: String? = null,
+        page: Int = 1,
+        size: Int = 20
+    ): Result<MovieCatalogPage> {
+        return fetchMovieCatalog(
+            keyword = keyword,
+            genre = genre,
+            year = year,
+            page = page,
+            size = size
+        ).map { movies ->
+            MovieCatalogPage(
+                items = movies,
+                hasMore = movies.size >= size
+            )
+        }
+    }
 
     suspend fun fetchMovieDetail(movieId: String): Result<MovieDetail>
 
@@ -22,6 +55,23 @@ interface AppRepository {
         page: Int = 0,
         size: Int = 20
     ): Result<List<Theater>>
+
+    suspend fun fetchTheaterPage(
+        keyword: String? = null,
+        page: Int = 0,
+        size: Int = 20
+    ): Result<TheaterPage> {
+        return fetchTheaters(
+            keyword = keyword,
+            page = page,
+            size = size
+        ).map { theaters ->
+            TheaterPage(
+                items = theaters,
+                hasMore = theaters.size >= size.coerceAtLeast(1)
+            )
+        }
+    }
 
     suspend fun fetchTheater(theaterId: String): Result<Theater>
 
@@ -33,6 +83,23 @@ interface AppRepository {
 
     suspend fun removeSavedTicket(ticketId: String): Result<Unit>
 }
+
+data class SignupRequest(
+    val loginId: String,
+    val password: String,
+    val nickname: String
+)
+
+data class LoginRequest(
+    val loginId: String,
+    val password: String
+)
+
+data class AuthSession(
+    val loginId: String,
+    val nickname: String,
+    val accessToken: String
+)
 
 data class SampleItem(
     val id: String,
@@ -53,6 +120,11 @@ data class MovieCatalogItem(
     val genre: String,
     val englishTitle: String = "",
     val imagePath: String = ""
+)
+
+data class MovieCatalogPage(
+    val items: List<MovieCatalogItem>,
+    val hasMore: Boolean
 )
 
 data class MovieDetail(
@@ -86,6 +158,11 @@ data class Theater(
     val homepage: String,
     val seatCount: Int,
     val naverMapUrl: String
+)
+
+data class TheaterPage(
+    val items: List<Theater>,
+    val hasMore: Boolean
 )
 
 data class MovieTicket(
