@@ -164,39 +164,12 @@ class MockAppRepository @Inject constructor() : AppRepository {
         "시네필여행자${(100..999).random()}"
     }
 
-    override suspend fun fetchItems(): Result<List<SampleItem>> = withMockDelay("fetchItems") {
-        listOf(
-            SampleItem(
-                id = "mock-1",
-                title = "Mock item",
-                description = "Template item from MockAppRepository"
-            ),
-            SampleItem(
-                id = "mock-2",
-                title = "Second mock item",
-                description = "Use this data while the backend is not ready"
-            )
-        )
-    }
-
-    override suspend fun submitItem(request: SampleItemRequest): Result<SampleItem> = withMockDelay(
-        "submitItem(titleLength=${request.title.length}, descriptionLength=${request.description.length})"
-    ) {
-        SampleItem(
-            id = "mock-created",
-            title = request.title,
-            description = request.description
-        )
-    }
-
     override suspend fun fetchMovieCatalog(
         keyword: String?,
-        genre: String?,
-        year: String?,
         page: Int,
         size: Int
     ): Result<List<MovieCatalogItem>> = withMockDelay(
-        "fetchMovieCatalog(keywordBlank=${keyword.isNullOrBlank()}, genreBlank=${genre.isNullOrBlank()}, yearBlank=${year.isNullOrBlank()}, page=$page, size=$size)"
+        "fetchMovieCatalog(keywordBlank=${keyword.isNullOrBlank()}, page=$page, size=$size)"
     ) {
         movieDetails
             .filter { movie ->
@@ -205,13 +178,7 @@ class MockAppRepository @Inject constructor() : AppRepository {
                     movie.englishTitle.contains(keyword, ignoreCase = true) ||
                     movie.director.contains(keyword, ignoreCase = true)
             }
-            .filter { movie ->
-                genre.isNullOrBlank() || movie.genre.contains(genre, ignoreCase = true)
-            }
-            .filter { movie ->
-                year.isNullOrBlank() || movie.releaseYear.toString() == year
-            }
-            .drop((page - 1).coerceAtLeast(0) * size.coerceAtLeast(1))
+            .drop(page.coerceAtLeast(0) * size.coerceAtLeast(1))
             .take(size.coerceAtLeast(1))
             .map { it.toCatalogItem() }
     }
@@ -257,16 +224,16 @@ class MockAppRepository @Inject constructor() : AppRepository {
     }
 
     override suspend fun createTicket(request: CreateTicketRequest): Result<Unit> = withMockDelay(
-        "createTicket(movieId=${request.movieId}, watchedDateLength=${request.watchedDate.length}, cinemaLength=${request.cinema.length}, reviewLength=${request.review.length})"
+        "createTicket(movieId=${request.movieId}, watchedDateLength=${request.watchedDate.length}, watchedTimeLength=${request.watchedTime.length}, rating=${request.rating}, reviewLength=${request.review.length})"
     ) {
         val movieDetail = movieDetails.firstOrNull { it.id == request.movieId }
         val movieTitle = movieDetail?.title ?: "영화 #${request.movieId}"
         myTickets += MovieTicket(
             id = "my-ticket-${myTickets.size + 1}",
             movieTitle = movieTitle,
-            theaterName = request.cinema,
+            theaterName = "",
             watchedDate = request.watchedDate,
-            rating = 0,
+            rating = request.rating.coerceIn(MIN_RATING, MAX_RATING),
             review = request.review,
             ownedByMe = true,
             savedByMe = false,
@@ -276,13 +243,12 @@ class MockAppRepository @Inject constructor() : AppRepository {
     }
 
     override suspend fun updateMyTicket(request: UpdateTicketRequest): Result<MovieTicket> = withMockDelay(
-        "updateMyTicket(ticketId=${request.ticketId}, theaterLength=${request.theaterName.length}, watchedDateLength=${request.watchedDate.length}, rating=${request.rating}, reviewLength=${request.review.length})"
+        "updateMyTicket(ticketId=${request.ticketId}, watchedDateLength=${request.watchedDate.length}, watchedTimeLength=${request.watchedTime.length}, rating=${request.rating}, reviewLength=${request.review.length})"
     ) {
         val index = myTickets.indexOfFirst { it.id == request.ticketId }
         require(index >= 0) { "Ticket not found" }
 
         val updatedTicket = myTickets[index].copy(
-            theaterName = request.theaterName,
             watchedDate = request.watchedDate,
             rating = request.rating.coerceIn(MIN_RATING, MAX_RATING),
             review = request.review

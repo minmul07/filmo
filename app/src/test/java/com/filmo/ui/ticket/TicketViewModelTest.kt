@@ -4,8 +4,6 @@ import com.filmo.service.AppRepository
 import com.filmo.service.MovieCatalogItem
 import com.filmo.service.MovieDetail
 import com.filmo.service.PublicTicket
-import com.filmo.service.SampleItem
-import com.filmo.service.SampleItemRequest
 import com.filmo.service.TicketCollection
 import com.filmo.service.UpdateTicketRequest
 import kotlinx.coroutines.runBlocking
@@ -66,16 +64,8 @@ class TicketViewModelTest {
     ) : AppRepository {
         override suspend fun ping(): Result<String> = Result.success("pong")
 
-        override suspend fun fetchItems(): Result<List<SampleItem>> = Result.success(emptyList())
-
-        override suspend fun submitItem(request: SampleItemRequest): Result<SampleItem> {
-            return Result.success(SampleItem("created", request.title, request.description))
-        }
-
         override suspend fun fetchMovieCatalog(
             keyword: String?,
-            genre: String?,
-            year: String?,
             page: Int,
             size: Int
         ): Result<List<MovieCatalogItem>> = Result.success(emptyList())

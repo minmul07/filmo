@@ -152,7 +152,7 @@ class RemoteAppRepositoryTest {
     }
 
     @Test
-    fun fetchMovieCatalogPageMapsPaginationMetadataAndRequestsOneBasedPage() = runBlocking {
+    fun fetchMovieCatalogPageMapsPaginationMetadataAndRequestsZeroBasedPage() = runBlocking {
         val apiService = FakeApiService(
             moviesResponse = """
                 {
@@ -177,10 +177,10 @@ class RemoteAppRepositoryTest {
         )
         val repository = RemoteAppRepository(apiService)
 
-        val result = repository.fetchMovieCatalogPage(page = 1, size = 20)
+        val result = repository.fetchMovieCatalogPage(page = 0, size = 20)
 
         assertTrue(result.isSuccess)
-        assertEquals(1, apiService.requestedMoviePage)
+        assertEquals(0, apiService.requestedMoviePage)
         assertEquals(20, apiService.requestedMovieSize)
         assertEquals(true, result.getOrThrow().hasMore)
         assertEquals(
@@ -271,7 +271,7 @@ class RemoteAppRepositoryTest {
     }
 
     @Test
-    fun fetchTicketCollectionReturnsMyTicketsWhenSavedTicketEndpointIsMissing() = runBlocking {
+    fun fetchTicketCollectionMapsMyTicketsAndSavedTicketsFromSwaggerEndpoints() = runBlocking {
         val repository = RemoteAppRepository(
             FakeApiService(
                 ticketsResponse = """
@@ -284,11 +284,31 @@ class RemoteAppRepositoryTest {
                           "movieSeq": 1001,
                           "watchedDate": "2026-05-16",
                           "watchedTime": "19:30",
-                          "cinema": "인디스페이스",
+                          "rating": 4,
                           "review": "작고 단단한 영화였어요",
                           "showYn": true,
                           "createdAt": "2026-05-16T13:51:52.335Z",
                           "updatedAt": "2026-05-16T13:51:52.335Z"
+                        }
+                      ]
+                    }
+                """.trimIndent(),
+                collectionsResponse = """
+                    {
+                      "code": 200,
+                      "message": "OK",
+                      "data": [
+                        {
+                          "ticketId": 201,
+                          "movieSeq": 1002,
+                          "watchedDate": "2026-05-17",
+                          "watchedTime": "20:00",
+                          "rating": 5,
+                          "review": "저장해 두고 다시 보고 싶은 티켓",
+                          "showYn": true,
+                          "createdAt": "2026-05-17T13:51:52.335Z",
+                          "updatedAt": "2026-05-17T13:51:52.335Z",
+                          "ownerNickname": "다른관객"
                         }
                       ]
                     }
@@ -303,7 +323,8 @@ class RemoteAppRepositoryTest {
                         "engTitle": "Test Film",
                         "director": "테스트 감독",
                         "productionYear": "2024",
-                        "genreName": "드라마"
+                        "genreName": "드라마",
+                        "imagePath": "poster.jpg"
                       }
                     }
                 """.trimIndent()
@@ -318,16 +339,30 @@ class RemoteAppRepositoryTest {
             MovieTicket(
                 id = "101",
                 movieTitle = "테스트 영화",
-                theaterName = "인디스페이스",
+                theaterName = "",
                 watchedDate = "2026-05-16",
-                rating = 0,
+                rating = 4,
                 review = "작고 단단한 영화였어요",
                 ownedByMe = true,
-                savedByMe = false
+                savedByMe = false,
+                posterImagePath = "poster.jpg"
             ),
             collection.myTickets.single()
         )
-        assertTrue(collection.savedTickets.isEmpty())
+        assertEquals(
+            MovieTicket(
+                id = "201",
+                movieTitle = "테스트 영화",
+                theaterName = "",
+                watchedDate = "2026-05-17",
+                rating = 5,
+                review = "저장해 두고 다시 보고 싶은 티켓",
+                ownedByMe = false,
+                savedByMe = true,
+                posterImagePath = "poster.jpg"
+            ),
+            collection.savedTickets.single()
+        )
     }
 
     @Test
@@ -344,9 +379,7 @@ class RemoteAppRepositoryTest {
                       "watchedDate": "2026-05-16",
                       "watchedTime": "19:30",
                       "rating": 3,
-                      "cinema": "인디스페이스",
                       "review": "작고 단단한 영화였어요",
-                      "ownerNickname": "독립영화user1234",
                       "showYn": true,
                       "createdAt": "2026-05-16T13:51:52.335Z",
                       "updatedAt": "2026-05-16T13:51:52.335Z"
@@ -387,11 +420,11 @@ class RemoteAppRepositoryTest {
                 releaseYear = 2024,
                 duration = "100분",
                 posterImagePath = "poster.jpg",
-                theaterName = "인디스페이스",
+                theaterName = "",
                 watchedDate = "2026-05-16",
                 watchedTime = "19:30",
                 rating = 3,
-                ownerNickname = "독립영화user1234",
+                ownerNickname = "",
                 review = "작고 단단한 영화였어요"
             ),
             result.getOrThrow().single()
@@ -408,16 +441,112 @@ class RemoteAppRepositoryTest {
                 movieId = "1001",
                 watchedDate = "2026-05-16",
                 watchedTime = "00:00",
-                cinema = "인디스페이스",
+                rating = 4,
                 review = "작고 단단한 영화였어요"
             )
         )
 
         assertTrue(result.isSuccess)
         assertEquals(
-            """{"movieSeq":1001,"watchedDate":"2026-05-16","watchedTime":"00:00","cinema":"인디스페이스","review":"작고 단단한 영화였어요"}""",
+            """{"movieSeq":1001,"watchedDate":"2026-05-16","watchedTime":"00:00","rating":4,"review":"작고 단단한 영화였어요"}""",
             apiService.createdTicketBody
         )
+    }
+
+    @Test
+    fun updateMyTicketPatchesSwaggerTicketRequestAndMapsUpdatedTicket() = runBlocking {
+        val apiService = FakeApiService(
+            ticketDetailResponse = """
+                {
+                  "code": 200,
+                  "message": "OK",
+                  "data": {
+                    "id": 101,
+                    "movieSeq": 1001,
+                    "watchedDate": "2026-05-17",
+                    "watchedTime": "20:00",
+                    "rating": 5,
+                    "review": "수정한 감상평",
+                    "showYn": true,
+                    "createdAt": "2026-05-16T13:51:52.335Z",
+                    "updatedAt": "2026-05-17T13:51:52.335Z",
+                    "likeCount": 0,
+                    "comments": [],
+                    "liked": false,
+                    "collected": false
+                  }
+                }
+            """.trimIndent(),
+            movieDetailResponse = """
+                {
+                  "code": 200,
+                  "message": "OK",
+                  "data": {
+                    "seq": 1001,
+                    "korTitle": "테스트 영화",
+                    "engTitle": "Test Film",
+                    "director": "테스트 감독",
+                    "productionYear": "2024",
+                    "genreName": "드라마",
+                    "imagePath": "poster.jpg"
+                  }
+                }
+            """.trimIndent()
+        )
+        val repository = RemoteAppRepository(apiService)
+
+        val result = repository.updateMyTicket(
+            UpdateTicketRequest(
+                ticketId = "101",
+                watchedDate = "2026-05-17",
+                watchedTime = "20:00",
+                rating = 5,
+                review = "수정한 감상평"
+            )
+        )
+
+        assertTrue(result.isSuccess)
+        assertEquals(101L, apiService.updatedTicketId)
+        assertEquals(
+            """{"watchedDate":"2026-05-17","watchedTime":"20:00","rating":5,"review":"수정한 감상평"}""",
+            apiService.updatedTicketBody
+        )
+        assertEquals(
+            MovieTicket(
+                id = "101",
+                movieTitle = "테스트 영화",
+                theaterName = "",
+                watchedDate = "2026-05-17",
+                rating = 5,
+                review = "수정한 감상평",
+                ownedByMe = true,
+                savedByMe = false,
+                posterImagePath = "poster.jpg"
+            ),
+            result.getOrThrow()
+        )
+    }
+
+    @Test
+    fun deleteMyTicketCallsSwaggerDeleteTicketEndpoint() = runBlocking {
+        val apiService = FakeApiService()
+        val repository = RemoteAppRepository(apiService)
+
+        val result = repository.deleteMyTicket("101")
+
+        assertTrue(result.isSuccess)
+        assertEquals(101L, apiService.deletedTicketId)
+    }
+
+    @Test
+    fun removeSavedTicketCallsSwaggerDeleteCollectionEndpoint() = runBlocking {
+        val apiService = FakeApiService()
+        val repository = RemoteAppRepository(apiService)
+
+        val result = repository.removeSavedTicket("201")
+
+        assertTrue(result.isSuccess)
+        assertEquals(201L, apiService.removedCollectionTicketId)
     }
 
     private class FakeApiService(
@@ -427,7 +556,9 @@ class RemoteAppRepositoryTest {
         private val meResponse: String = """{"data":{"loginId":"user1","nickname":"로그인닉네임"}}""",
         private val moviesResponse: String = """{"data":{"content":[]}}""",
         private val movieDetailResponse: String = """{"data":{}}""",
+        private val ticketDetailResponse: String = """{"data":{}}""",
         private val ticketsResponse: String = """{"data":[]}""",
+        private val collectionsResponse: String = """{"data":[]}""",
         private val publicTicketsResponse: String = """{"data":[]}"""
     ) : ApiService {
         var signupBody: String? = null
@@ -444,13 +575,16 @@ class RemoteAppRepositoryTest {
             private set
         var requestedPublicTicketSort: String? = null
             private set
+        var updatedTicketId: Long? = null
+            private set
+        var updatedTicketBody: String? = null
+            private set
+        var deletedTicketId: Long? = null
+            private set
+        var removedCollectionTicketId: Long? = null
+            private set
 
         override suspend fun ping(): ResponseBody = """{"data":null}""".toResponseBody()
-
-        override suspend fun fetchItems(): ResponseBody = """{"data":[]}""".toResponseBody()
-
-        override suspend fun submitItem(title: String, description: String): ResponseBody =
-            """{"data":null}""".toResponseBody()
 
         override suspend fun signup(body: RequestBody): ResponseBody {
             val buffer = Buffer()
@@ -476,8 +610,6 @@ class RemoteAppRepositoryTest {
 
         override suspend fun fetchMovies(
             keyword: String?,
-            genre: String?,
-            year: String?,
             page: Int,
             size: Int,
             sort: List<String>?
@@ -496,6 +628,12 @@ class RemoteAppRepositoryTest {
         override suspend fun fetchTickets(): ResponseBody =
             ticketsResponse.toResponseBody()
 
+        override suspend fun fetchTicket(ticketId: Long): ResponseBody =
+            ticketDetailResponse.toResponseBody()
+
+        override suspend fun fetchCollections(): ResponseBody =
+            collectionsResponse.toResponseBody()
+
         override suspend fun fetchPublicTickets(sort: String): ResponseBody {
             requestedPublicTicketSort = sort
             return publicTicketsResponse.toResponseBody()
@@ -506,6 +644,24 @@ class RemoteAppRepositoryTest {
             body.writeTo(buffer)
             createdTicketBody = buffer.readUtf8()
             return """{"code":200,"message":"OK","data":null}""".toResponseBody()
+        }
+
+        override suspend fun updateTicket(ticketId: Long, body: RequestBody): ResponseBody {
+            updatedTicketId = ticketId
+            val buffer = Buffer()
+            body.writeTo(buffer)
+            updatedTicketBody = buffer.readUtf8()
+            return """{"code":200,"message":"OK","data":"OK"}""".toResponseBody()
+        }
+
+        override suspend fun deleteTicket(ticketId: Long): ResponseBody {
+            deletedTicketId = ticketId
+            return """{"code":200,"message":"OK","data":"OK"}""".toResponseBody()
+        }
+
+        override suspend fun removeCollection(ticketId: Long): ResponseBody {
+            removedCollectionTicketId = ticketId
+            return """{"code":200,"message":"OK","data":"OK"}""".toResponseBody()
         }
     }
 

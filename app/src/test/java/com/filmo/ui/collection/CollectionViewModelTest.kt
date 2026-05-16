@@ -4,8 +4,6 @@ import com.filmo.service.AppRepository
 import com.filmo.service.MovieCatalogItem
 import com.filmo.service.MovieDetail
 import com.filmo.service.MovieTicket
-import com.filmo.service.SampleItem
-import com.filmo.service.SampleItemRequest
 import com.filmo.service.TicketCollection
 import com.filmo.service.UpdateTicketRequest
 import kotlinx.coroutines.runBlocking
@@ -74,14 +72,13 @@ class CollectionViewModelTest {
 
         viewModel.loadTickets()
         viewModel.startEditingTicket("my-1")
-        viewModel.updateEditingTheaterName("인디스페이스")
         viewModel.updateEditingWatchedDate("2024-03-21")
         viewModel.updateEditingRating(5)
         viewModel.updateEditingReview("다시 봐도 따뜻했다.")
         viewModel.saveEditedTicket()
 
         val ticket = viewModel.uiState.value.myTickets.single()
-        assertEquals("인디스페이스", ticket.theaterName)
+        assertEquals("서울아트시네마", ticket.theaterName)
         assertEquals("2024-03-21", ticket.watchedDate)
         assertEquals(5, ticket.rating)
         assertEquals("다시 봐도 따뜻했다.", ticket.review)
@@ -116,16 +113,8 @@ class CollectionViewModelTest {
 
         override suspend fun ping(): Result<String> = Result.success("pong")
 
-        override suspend fun fetchItems(): Result<List<SampleItem>> = Result.success(emptyList())
-
-        override suspend fun submitItem(request: SampleItemRequest): Result<SampleItem> {
-            return Result.success(SampleItem("created", request.title, request.description))
-        }
-
         override suspend fun fetchMovieCatalog(
             keyword: String?,
-            genre: String?,
-            year: String?,
             page: Int,
             size: Int
         ): Result<List<MovieCatalogItem>> {
@@ -148,7 +137,6 @@ class CollectionViewModelTest {
         override suspend fun updateMyTicket(request: UpdateTicketRequest): Result<MovieTicket> {
             val index = myTickets.indexOfFirst { it.id == request.ticketId }
             val updated = myTickets[index].copy(
-                theaterName = request.theaterName,
                 watchedDate = request.watchedDate,
                 rating = request.rating,
                 review = request.review

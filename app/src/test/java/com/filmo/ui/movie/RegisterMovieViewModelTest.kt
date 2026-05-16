@@ -6,8 +6,6 @@ import com.filmo.service.MovieCatalogItem
 import com.filmo.service.MovieCatalogPage
 import com.filmo.service.MovieDetail
 import com.filmo.service.MovieTicket
-import com.filmo.service.SampleItem
-import com.filmo.service.SampleItemRequest
 import com.filmo.service.TicketCollection
 import com.filmo.service.UpdateTicketRequest
 import kotlinx.coroutines.runBlocking
@@ -35,7 +33,7 @@ class RegisterMovieViewModelTest {
 
         viewModel.loadMovieCatalog()
 
-        assertEquals(listOf(1), repository.requestedMoviePages)
+        assertEquals(listOf(0), repository.requestedMoviePages)
         assertEquals(listOf(20), repository.requestedMovieSizes)
     }
 
@@ -43,12 +41,12 @@ class RegisterMovieViewModelTest {
     fun loadNextMovieCatalogPageAppendsRepositoryMovies() = runBlocking {
         val repository = FakeAppRepository(
             moviePages = mapOf(
-                1 to FakeMovies.take(2),
-                2 to FakeMovies.drop(2)
+                0 to FakeMovies.take(2),
+                1 to FakeMovies.drop(2)
             ),
             hasMoreByPage = mapOf(
-                1 to true,
-                2 to false
+                0 to true,
+                1 to false
             )
         )
         val viewModel = RegisterMovieViewModel(repository)
@@ -57,7 +55,7 @@ class RegisterMovieViewModelTest {
         viewModel.loadNextMovieCatalogPage()
 
         val state = viewModel.uiState.value
-        assertEquals(listOf(1, 2), repository.requestedMoviePages)
+        assertEquals(listOf(0, 1), repository.requestedMoviePages)
         assertEquals(listOf("헤어질 결심", "윤희에게", "벌새", "소공녀"), state.movies.map { it.title })
         assertFalse(state.isMovieCatalogLoading)
         assertFalse(state.isMovieCatalogAppendLoading)
@@ -67,15 +65,15 @@ class RegisterMovieViewModelTest {
     @Test
     fun loadNextMovieCatalogPageDoesNotRequestWhenLastPageLoaded() = runBlocking {
         val repository = FakeAppRepository(
-            moviePages = mapOf(1 to FakeMovies),
-            hasMoreByPage = mapOf(1 to false)
+            moviePages = mapOf(0 to FakeMovies),
+            hasMoreByPage = mapOf(0 to false)
         )
         val viewModel = RegisterMovieViewModel(repository)
 
         viewModel.loadMovieCatalog()
         viewModel.loadNextMovieCatalogPage()
 
-        assertEquals(listOf(1), repository.requestedMoviePages)
+        assertEquals(listOf(0), repository.requestedMoviePages)
         assertFalse(viewModel.uiState.value.canLoadMoreMovies)
     }
 
@@ -216,7 +214,7 @@ class RegisterMovieViewModelTest {
                 movieId = "1001",
                 watchedDate = "2026-05-16",
                 watchedTime = "00:00",
-                cinema = "",
+                rating = 5,
                 review = "작고 단단한 영화였어요"
             ),
             repository.createdTicketRequests.single()
@@ -247,7 +245,7 @@ class RegisterMovieViewModelTest {
                 movieId = "1001",
                 watchedDate = "2026-05-16",
                 watchedTime = "00:00",
-                cinema = "",
+                rating = 5,
                 review = "작고 단단한 영화였어요"
             ),
             repository.createdTicketRequests.single()
@@ -268,8 +266,8 @@ class RegisterMovieViewModelTest {
     }
 
     private class FakeAppRepository(
-        private val moviePages: Map<Int, List<MovieCatalogItem>> = mapOf(1 to FakeMovies),
-        private val hasMoreByPage: Map<Int, Boolean> = mapOf(1 to false)
+        private val moviePages: Map<Int, List<MovieCatalogItem>> = mapOf(0 to FakeMovies),
+        private val hasMoreByPage: Map<Int, Boolean> = mapOf(0 to false)
     ) : AppRepository {
         val requestedMoviePages = mutableListOf<Int>()
         val requestedMovieSizes = mutableListOf<Int>()
@@ -277,22 +275,8 @@ class RegisterMovieViewModelTest {
 
         override suspend fun ping(): Result<String> = Result.success("pong")
 
-        override suspend fun fetchItems(): Result<List<SampleItem>> = Result.success(emptyList())
-
-        override suspend fun submitItem(request: SampleItemRequest): Result<SampleItem> {
-            return Result.success(
-                SampleItem(
-                    id = "created",
-                    title = request.title,
-                    description = request.description
-                )
-            )
-        }
-
         override suspend fun fetchMovieCatalog(
             keyword: String?,
-            genre: String?,
-            year: String?,
             page: Int,
             size: Int
         ): Result<List<MovieCatalogItem>> {
@@ -303,8 +287,6 @@ class RegisterMovieViewModelTest {
 
         override suspend fun fetchMovieCatalogPage(
             keyword: String?,
-            genre: String?,
-            year: String?,
             page: Int,
             size: Int
         ): Result<MovieCatalogPage> {

@@ -98,76 +98,29 @@ class RemoteAppRepository @Inject constructor(
         Timber.w(it, "RemoteAppRepository.ping failed")
     }
 
-    override suspend fun fetchItems(): Result<List<SampleItem>> = runCatching {
-        Timber.d("RemoteAppRepository.fetchItems request")
-        val responseText = apiService.fetchItems().string()
-        listOf(
-            SampleItem(
-                id = "remote-placeholder",
-                title = "Remote response",
-                description = responseText
-            )
-        )
-    }.onSuccess { items ->
-        Timber.d("RemoteAppRepository.fetchItems success itemCount=%d", items.size)
-    }.onFailure {
-        Timber.w(it, "RemoteAppRepository.fetchItems failed")
-    }
-
-    override suspend fun submitItem(request: SampleItemRequest): Result<SampleItem> = runCatching {
-        Timber.d(
-            "RemoteAppRepository.submitItem request titleLength=%d descriptionLength=%d",
-            request.title.length,
-            request.description.length
-        )
-        val responseText = apiService.submitItem(
-            title = request.title,
-            description = request.description
-        ).string()
-        SampleItem(
-            id = "remote-created-placeholder",
-            title = request.title,
-            description = responseText.ifBlank { request.description }
-        )
-    }.onSuccess { item ->
-        Timber.d("RemoteAppRepository.submitItem success itemId=%s", item.id)
-    }.onFailure {
-        Timber.w(it, "RemoteAppRepository.submitItem failed")
-    }
-
     override suspend fun fetchMovieCatalog(
         keyword: String?,
-        genre: String?,
-        year: String?,
         page: Int,
         size: Int
     ): Result<List<MovieCatalogItem>> = fetchMovieCatalogPage(
         keyword = keyword,
-        genre = genre,
-        year = year,
         page = page,
         size = size
     ).map { it.items }
 
     override suspend fun fetchMovieCatalogPage(
         keyword: String?,
-        genre: String?,
-        year: String?,
         page: Int,
         size: Int
     ): Result<MovieCatalogPage> = runCatching {
         Timber.d(
-            "RemoteAppRepository.fetchMovieCatalogPage request keywordBlank=%s genreBlank=%s yearBlank=%s page=%d size=%d",
+            "RemoteAppRepository.fetchMovieCatalogPage request keywordBlank=%s page=%d size=%d",
             keyword.isNullOrBlank(),
-            genre.isNullOrBlank(),
-            year.isNullOrBlank(),
             page,
             size
         )
         val response = apiService.fetchMovies(
             keyword = keyword,
-            genre = genre,
-            year = year,
             page = page,
             size = size
         )
@@ -210,11 +163,13 @@ class RemoteAppRepository @Inject constructor(
             .jsonObject
             .dataArray()
             .map { it.jsonObject.toMovieTicket(ownedByMe = true) }
-        // Swagger exposes my tickets, but no saved-ticket collection endpoint.
-        // Keep the collection screen usable until that API is added.
+        val savedTickets = JsonParser.parseToJsonElement(apiService.fetchCollections().string())
+            .jsonObject
+            .dataArray()
+            .map { it.jsonObject.toMovieTicket(ownedByMe = false) }
         TicketCollection(
             myTickets = myTickets,
-            savedTickets = emptyList()
+            savedTickets = savedTickets
         )
     }.onSuccess { collection ->
         Timber.d(
@@ -240,10 +195,11 @@ class RemoteAppRepository @Inject constructor(
 
     override suspend fun createTicket(request: CreateTicketRequest): Result<Unit> = runCatching {
         Timber.d(
-            "RemoteAppRepository.createTicket request movieId=%s watchedDateLength=%d cinemaLength=%d reviewLength=%d",
+            "RemoteAppRepository.createTicket request movieId=%s watchedDateLength=%d watchedTimeLength=%d rating=%d reviewLength=%d",
             request.movieId,
             request.watchedDate.length,
-            request.cinema.length,
+            request.watchedTime.length,
+            request.rating,
             request.review.length
         )
         val movieSeq = request.movieId.toLongOrNull() ?: error("Invalid movie id")
@@ -252,7 +208,7 @@ class RemoteAppRepository @Inject constructor(
                 put("movieSeq", movieSeq)
                 put("watchedDate", request.watchedDate)
                 put("watchedTime", request.watchedTime)
-                put("cinema", request.cinema)
+                put("rating", request.rating)
                 put("review", request.review)
             }
         ).close()
@@ -265,28 +221,45 @@ class RemoteAppRepository @Inject constructor(
 
     override suspend fun updateMyTicket(request: UpdateTicketRequest): Result<MovieTicket> = runCatching {
         Timber.d(
-            "RemoteAppRepository.updateMyTicket request ticketId=%s theaterLength=%d watchedDateLength=%d rating=%d reviewLength=%d",
+            "RemoteAppRepository.updateMyTicket request ticketId=%s watchedDateLength=%d watchedTimeLength=%d rating=%d reviewLength=%d",
             request.ticketId,
-            request.theaterName.length,
             request.watchedDate.length,
+            request.watchedTime.length,
             request.rating,
             request.review.length
         )
-        error("Ticket update API is not specified in Swagger.")
+        val ticketId = request.ticketId.toLongOrNull() ?: error("Invalid ticket id")
+        apiService.updateTicket(
+            ticketId = ticketId,
+            body = buildJsonRequestBody {
+                put("watchedDate", request.watchedDate)
+                put("watchedTime", request.watchedTime)
+                put("rating", request.rating)
+                put("review", request.review)
+            }
+        ).close()
+        JsonParser.parseToJsonElement(apiService.fetchTicket(ticketId).string())
+            .jsonObject
+            .dataObject()
+            .toMovieTicket(ownedByMe = true)
     }.onFailure {
         Timber.w(it, "RemoteAppRepository.updateMyTicket failed ticketId=%s", request.ticketId)
     }
 
     override suspend fun deleteMyTicket(ticketId: String): Result<Unit> = runCatching {
         Timber.d("RemoteAppRepository.deleteMyTicket request ticketId=%s", ticketId)
-        error("Ticket delete API is not specified in Swagger.")
+        val ticketSeq = ticketId.toLongOrNull() ?: error("Invalid ticket id")
+        apiService.deleteTicket(ticketSeq).close()
+        Unit
     }.onFailure {
         Timber.w(it, "RemoteAppRepository.deleteMyTicket failed ticketId=%s", ticketId)
     }
 
     override suspend fun removeSavedTicket(ticketId: String): Result<Unit> = runCatching {
         Timber.d("RemoteAppRepository.removeSavedTicket request ticketId=%s", ticketId)
-        error("Saved ticket delete API is not specified in Swagger.")
+        val ticketSeq = ticketId.toLongOrNull() ?: error("Invalid ticket id")
+        apiService.removeCollection(ticketSeq).close()
+        Unit
     }.onFailure {
         Timber.w(it, "RemoteAppRepository.removeSavedTicket failed ticketId=%s", ticketId)
     }
@@ -342,7 +315,7 @@ class RemoteAppRepository @Inject constructor(
         val movieSeq = string("movieSeq")
         val movieDetail = fetchMovieDetailOrNull(movieSeq)
         return MovieTicket(
-            id = string("id"),
+            id = string("id").ifBlank { string("ticketId") },
             movieTitle = string("movieTitle")
                 .ifBlank { string("korTitle") }
                 .ifBlank { movieDetail?.title.orEmpty() }
@@ -352,7 +325,7 @@ class RemoteAppRepository @Inject constructor(
             rating = int("rating").coerceIn(MIN_TICKET_RATING, MAX_TICKET_RATING),
             review = string("review"),
             ownedByMe = ownedByMe,
-            savedByMe = booleanOrNull("savedByMe") == true,
+            savedByMe = booleanOrNull("savedByMe") ?: !ownedByMe,
             posterImagePath = movieDetail?.imagePath.orEmpty()
         )
     }
@@ -470,10 +443,15 @@ private class JsonObjectBuilderScope {
         entries += key to JsonValue.LongValue(value)
     }
 
+    fun put(key: String, value: Int) {
+        entries += key to JsonValue.IntValue(value)
+    }
+
     fun build(): JsonObject {
         return buildJsonObject {
             entries.forEach { (key, value) ->
                 when (value) {
+                    is JsonValue.IntValue -> put(key, value.value)
                     is JsonValue.LongValue -> put(key, value.value)
                     is JsonValue.StringValue -> put(key, value.value)
                 }
@@ -482,6 +460,7 @@ private class JsonObjectBuilderScope {
     }
 
     private sealed interface JsonValue {
+        data class IntValue(val value: Int) : JsonValue
         data class LongValue(val value: Long) : JsonValue
         data class StringValue(val value: String) : JsonValue
     }

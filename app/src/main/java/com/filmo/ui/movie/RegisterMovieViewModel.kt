@@ -329,10 +329,11 @@ class RegisterMovieViewModel @Inject constructor(
         }
 
         Timber.d(
-            "RegisterMovieViewModel.createTicket request movieId=%s watchedDateLength=%d cinemaLength=%d reviewLength=%d",
+            "RegisterMovieViewModel.createTicket request movieId=%s watchedDateLength=%d watchedTimeLength=%d rating=%d reviewLength=%d",
             request.movieId,
             request.watchedDate.length,
-            request.cinema.length,
+            request.watchedTime.length,
+            request.rating,
             request.review.length
         )
         _uiState.update {
@@ -460,13 +461,14 @@ data class RegisterMovieUiState(
 private fun RegisterMovieUiState.toCreateTicketRequestOrNull(): CreateTicketRequest? {
     val movieId = selectedMovie?.id?.takeIf { it.isNotBlank() } ?: return null
     val watchedDate = releaseDateMillis.toApiWatchedDate().takeIf { it.isNotBlank() } ?: return null
+    val watchedRating = rating ?: return null
     val trimmedReview = review.trim().takeIf { it.isNotBlank() } ?: return null
 
     return CreateTicketRequest(
         movieId = movieId,
         watchedDate = watchedDate,
         watchedTime = DefaultWatchedTime,
-        cinema = DefaultCinema,
+        rating = watchedRating,
         review = trimmedReview
     )
 }
@@ -477,13 +479,12 @@ enum class RegisterMovieStep {
     Share
 }
 
-private const val InitialMovieCatalogPage = 1
+private const val InitialMovieCatalogPage = 0
 private const val MovieCatalogPageSize = 20
 private const val MIN_RATING = 1
 private const val MAX_RATING = 5
 private const val MAX_REVIEW_LENGTH = 100
 private const val DefaultWatchedTime = "00:00"
-private const val DefaultCinema = ""
 private const val RequiredViewingInfoMessage = "관람일, 별점, 관람 후기를 입력해 주세요."
 
 private fun isFutureDate(dateMillis: Long, nowMillis: Long): Boolean {

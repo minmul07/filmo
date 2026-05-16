@@ -59,19 +59,6 @@ class MockAppRepositoryTest {
     }
 
     @Test
-    fun fetchItemsReturnsTemplateItemsAfterMockDelay() = runBlocking {
-        val repository = MockAppRepository()
-
-        val startedAt = System.currentTimeMillis()
-        val result = repository.fetchItems()
-        val elapsedMillis = System.currentTimeMillis() - startedAt
-
-        assertTrue(result.isSuccess)
-        assertTrue(result.getOrThrow().isNotEmpty())
-        assertTrue(elapsedMillis >= 250)
-    }
-
-    @Test
     fun fetchMovieCatalogReturnsFourIndependentFilmsAfterMockDelay() = runBlocking {
         val repository = MockAppRepository()
 
@@ -101,20 +88,4 @@ class MockAppRepositoryTest {
         assertTrue(elapsedMillis >= 250)
     }
 
-    @Test
-    fun submitItemReturnsCreatedItemAfterMockDelay() = runBlocking {
-        val repository = MockAppRepository()
-        val request = SampleItemRequest(
-            title = "Mock title",
-            description = "Mock description"
-        )
-
-        val startedAt = System.currentTimeMillis()
-        val result = repository.submitItem(request)
-        val elapsedMillis = System.currentTimeMillis() - startedAt
-
-        assertTrue(result.isSuccess)
-        assertTrue(result.getOrThrow().title == request.title)
-        assertTrue(elapsedMillis >= 250)
-    }
 }

@@ -15,29 +15,19 @@ interface AppRepository {
 
     suspend fun ping(): Result<String>
 
-    suspend fun fetchItems(): Result<List<SampleItem>>
-
-    suspend fun submitItem(request: SampleItemRequest): Result<SampleItem>
-
     suspend fun fetchMovieCatalog(
         keyword: String? = null,
-        genre: String? = null,
-        year: String? = null,
-        page: Int = 1,
+        page: Int = 0,
         size: Int = 20
     ): Result<List<MovieCatalogItem>>
 
     suspend fun fetchMovieCatalogPage(
         keyword: String? = null,
-        genre: String? = null,
-        year: String? = null,
-        page: Int = 1,
+        page: Int = 0,
         size: Int = 20
     ): Result<MovieCatalogPage> {
         return fetchMovieCatalog(
             keyword = keyword,
-            genre = genre,
-            year = year,
             page = page,
             size = size
         ).map { movies ->
@@ -82,17 +72,6 @@ data class AuthSession(
     val loginId: String,
     val nickname: String,
     val accessToken: String
-)
-
-data class SampleItem(
-    val id: String,
-    val title: String,
-    val description: String
-)
-
-data class SampleItemRequest(
-    val title: String,
-    val description: String
 )
 
 data class MovieCatalogItem(
@@ -169,14 +148,14 @@ data class CreateTicketRequest(
     val movieId: String,
     val watchedDate: String,
     val watchedTime: String,
-    val cinema: String,
+    val rating: Int,
     val review: String
 )
 
 data class UpdateTicketRequest(
     val ticketId: String,
-    val theaterName: String,
     val watchedDate: String,
+    val watchedTime: String,
     val rating: Int,
     val review: String
 )

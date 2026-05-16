@@ -201,18 +201,16 @@ class CollectionViewModel @Inject constructor(
     suspend fun saveEditedTicket() {
         val editingTicket = _uiState.value.editingTicket ?: return
         Timber.d("CollectionViewModel.saveEditedTicket request ticketId=%s", editingTicket.id)
-        if (editingTicket.theaterName.isBlank() ||
-            editingTicket.watchedDate.isBlank() ||
+        if (editingTicket.watchedDate.isBlank() ||
             editingTicket.review.isBlank()
         ) {
             Timber.d(
-                "CollectionViewModel.saveEditedTicket blocked theaterBlank=%s watchedDateBlank=%s reviewBlank=%s",
-                editingTicket.theaterName.isBlank(),
+                "CollectionViewModel.saveEditedTicket blocked watchedDateBlank=%s reviewBlank=%s",
                 editingTicket.watchedDate.isBlank(),
                 editingTicket.review.isBlank()
             )
             _uiState.update {
-                it.copy(errorMessage = "영화관, 관람일, 관람 후기를 입력해 주세요.")
+                it.copy(errorMessage = "관람일, 관람 후기를 입력해 주세요.")
             }
             return
         }
@@ -220,8 +218,8 @@ class CollectionViewModel @Inject constructor(
         val result = appRepository.updateMyTicket(
             UpdateTicketRequest(
                 ticketId = editingTicket.id,
-                theaterName = editingTicket.theaterName,
                 watchedDate = editingTicket.watchedDate,
+                watchedTime = DefaultWatchedTime,
                 rating = editingTicket.rating,
                 review = editingTicket.review
             )
@@ -255,6 +253,7 @@ class CollectionViewModel @Inject constructor(
     private companion object {
         const val MIN_RATING = 1
         const val MAX_RATING = 5
+        const val DefaultWatchedTime = "00:00"
     }
 }
 
