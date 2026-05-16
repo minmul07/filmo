@@ -11,6 +11,9 @@ sealed interface ScreenDestination : NavKey {
     data object Record : ScreenDestination
 
     @Serializable
+    data object RecordViewingInfo : ScreenDestination
+
+    @Serializable
     data object TheaterFinder : ScreenDestination
 
     @Serializable

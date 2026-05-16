@@ -47,6 +47,7 @@ import com.filmo.ui.collection.CollectionScreen
 import com.filmo.ui.feed.FeedScreen
 import com.filmo.ui.movie.RegisterMovieScreen
 import com.filmo.ui.movie.RegisterMovieViewModel
+import com.filmo.ui.movie.ViewingInfoRoute
 import com.filmo.ui.profile.ProfileRoute
 import com.filmo.ui.theater.TheaterDetailScreen
 import com.filmo.ui.theater.TheaterFinderScreen
@@ -81,6 +82,9 @@ fun MainScreen(
     val reserveBottomBarSpace = shouldReserveBottomBarSpace(
         currentDestination = currentDestination
     )
+    val placeBottomBarAboveContent = shouldPlaceBottomBarAboveContent(
+        currentDestination = currentDestination
+    )
     val registerMovieViewModel: RegisterMovieViewModel = hiltViewModel()
     val layoutDirection = LocalLayoutDirection.current
     val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
@@ -99,7 +103,7 @@ fun MainScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .zIndex(0f)
+                .zIndex(if (placeBottomBarAboveContent) 2f else 0f)
         )
         NavDisplay(
             backStack = backStack,
@@ -126,7 +130,17 @@ fun MainScreen(
                     RegisterMovieScreen(
                         viewModel = registerMovieViewModel,
                         searchBottomPadding = bottomBarHeight,
-                        onBack = { navigateToTopLevelDestination(ScreenDestination.Feed) },
+                        onNavigateToViewingInfo = {
+                            backStack.add(ScreenDestination.RecordViewingInfo)
+                        },
+                        onBack = { navigateToTopLevelDestination(ScreenDestination.Feed) }
+                    )
+                }
+
+                entry<ScreenDestination.RecordViewingInfo> {
+                    ViewingInfoRoute(
+                        viewModel = registerMovieViewModel,
+                        onBack = navigateBack,
                         onNavigateToCollection = {
                             navigateToTopLevelDestination(ScreenDestination.Collection)
                         }
@@ -201,7 +215,8 @@ fun MainScreen(
 internal fun shouldResetRecordMovieState(
     currentDestination: ScreenDestination
 ): Boolean {
-    return currentDestination !is ScreenDestination.Record
+    return currentDestination !is ScreenDestination.Record &&
+        currentDestination !is ScreenDestination.RecordViewingInfo
 }
 
 internal fun shouldReserveBottomBarSpace(
@@ -210,11 +225,22 @@ internal fun shouldReserveBottomBarSpace(
 ): Boolean {
     return when {
         currentDestination is ScreenDestination.Record -> false
+        currentDestination is ScreenDestination.RecordViewingInfo -> false
         currentDestination is ScreenDestination.CollectionDetail -> false
         currentDestination is ScreenDestination.CollectionEdit -> false
         currentDestination is ScreenDestination.TheaterDetail -> false
         else -> true
     }
+}
+
+internal fun shouldPlaceBottomBarAboveContent(
+    currentDestination: ScreenDestination
+): Boolean {
+    return currentDestination is ScreenDestination.Feed ||
+        currentDestination is ScreenDestination.Record ||
+        currentDestination is ScreenDestination.TheaterFinder ||
+        currentDestination is ScreenDestination.Collection ||
+        currentDestination is ScreenDestination.Profile
 }
 
 @Composable

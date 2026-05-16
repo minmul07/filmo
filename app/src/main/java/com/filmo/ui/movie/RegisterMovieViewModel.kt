@@ -275,15 +275,6 @@ class RegisterMovieViewModel @Inject constructor(
         _uiState.update { it.copy(cast = cast, errorMessage = null) }
     }
 
-    fun updateTheaterName(theaterName: String) {
-        Timber.d(
-            "RegisterMovieViewModel.updateTheaterName input length=%d blank=%s",
-            theaterName.length,
-            theaterName.isBlank()
-        )
-        _uiState.update { it.copy(theaterName = theaterName, errorMessage = null) }
-    }
-
     fun updateRating(rating: Int) {
         Timber.d("RegisterMovieViewModel.updateRating input=%d coerced=%d", rating, rating.coerceIn(MIN_RATING, MAX_RATING))
         _uiState.update {
@@ -332,7 +323,7 @@ class RegisterMovieViewModel @Inject constructor(
         if (request == null) {
             Timber.d("RegisterMovieViewModel.createTicket blocked reason=missing_required_info")
             _uiState.update {
-                it.copy(errorMessage = "영화, 관람일, 관람 후기를 입력해 주세요.")
+                it.copy(errorMessage = RequiredViewingInfoMessage)
             }
             return false
         }
@@ -418,7 +409,7 @@ class RegisterMovieViewModel @Inject constructor(
                 state.review.isBlank()
             )
             _uiState.update {
-                it.copy(errorMessage = "관람일, 별점, 관람 후기를 입력해 주세요.")
+                it.copy(errorMessage = RequiredViewingInfoMessage)
             }
             return
         }
@@ -450,7 +441,6 @@ data class RegisterMovieUiState(
     val genre: String = "",
     val director: String = "",
     val cast: String = "",
-    val theaterName: String = "",
     val rating: Int? = null,
     val review: String = "",
     val errorMessage: String? = null
@@ -470,14 +460,13 @@ data class RegisterMovieUiState(
 private fun RegisterMovieUiState.toCreateTicketRequestOrNull(): CreateTicketRequest? {
     val movieId = selectedMovie?.id?.takeIf { it.isNotBlank() } ?: return null
     val watchedDate = releaseDateMillis.toApiWatchedDate().takeIf { it.isNotBlank() } ?: return null
-    val cinema = theaterName.trim()
     val trimmedReview = review.trim().takeIf { it.isNotBlank() } ?: return null
 
     return CreateTicketRequest(
         movieId = movieId,
         watchedDate = watchedDate,
         watchedTime = DefaultWatchedTime,
-        cinema = cinema,
+        cinema = DefaultCinema,
         review = trimmedReview
     )
 }
@@ -494,6 +483,8 @@ private const val MIN_RATING = 1
 private const val MAX_RATING = 5
 private const val MAX_REVIEW_LENGTH = 100
 private const val DefaultWatchedTime = "00:00"
+private const val DefaultCinema = ""
+private const val RequiredViewingInfoMessage = "관람일, 별점, 관람 후기를 입력해 주세요."
 
 private fun isFutureDate(dateMillis: Long, nowMillis: Long): Boolean {
     return dateMillis > nowMillis

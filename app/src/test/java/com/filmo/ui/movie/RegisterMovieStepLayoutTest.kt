@@ -12,17 +12,21 @@ class RegisterMovieStepLayoutTest {
     }
 
     @Test
-    fun infoAndShareStepsCoverBottomBar() {
-        assertTrue(shouldCoverBottomBar(RegisterMovieStep.MovieInfo))
-        assertTrue(shouldCoverBottomBar(RegisterMovieStep.Share))
+    fun registerStepsDoNotCoverBottomBar() {
+        assertFalse(shouldCoverBottomBar(RegisterMovieStep.MovieSearch))
     }
 
     @Test
-    fun fullScreenStepSlidesInFromBottomAndOutToBottom() {
-        assertTrue(isFullScreenStepVisible(RegisterMovieStep.MovieInfo))
+    fun registerScreenDoesNotMountViewingInfoAsInternalStep() {
         assertFalse(isFullScreenStepVisible(RegisterMovieStep.MovieSearch))
-        assertEquals(320, fullScreenStepEnterOffsetY(320))
-        assertEquals(320, fullScreenStepExitOffsetY(320))
+        assertFalse(isFullScreenStepVisible(RegisterMovieStep.MovieInfo))
+        assertFalse(isFullScreenStepVisible(RegisterMovieStep.Share))
+    }
+
+    @Test
+    fun viewingInfoRouteSlidesInFromBottomAndOutToBottom() {
+        assertEquals(320, viewingInfoRouteEnterOffsetY(320))
+        assertEquals(320, viewingInfoRouteExitOffsetY(320))
     }
 
     @Test

@@ -98,13 +98,11 @@ class RegisterMovieViewModelTest {
         val viewModel = RegisterMovieViewModel(FakeAppRepository())
 
         viewModel.selectMovie(FakeMovies.first())
-        viewModel.updateTheaterName("아트나인")
         viewModel.updateReleaseDateMillis(1_609_459_200_000L)
         viewModel.updateRating(5)
         viewModel.updateReview("영화의 여운이 길게 남았다.")
 
         val state = viewModel.uiState.value
-        assertEquals("아트나인", state.theaterName)
         assertEquals(1_609_459_200_000L, state.releaseDateMillis)
         assertEquals(5, state.rating)
         assertEquals("영화의 여운이 길게 남았다.", state.review)
@@ -153,7 +151,6 @@ class RegisterMovieViewModelTest {
         val viewModel = RegisterMovieViewModel(FakeAppRepository())
 
         viewModel.selectMovie(FakeMovies.first())
-        viewModel.updateTheaterName("아트나인")
         viewModel.updateReleaseDateMillis(
             releaseDateMillis = 1_609_459_200_000L,
             nowMillis = 1_609_545_600_000L
@@ -184,7 +181,6 @@ class RegisterMovieViewModelTest {
         val viewModel = RegisterMovieViewModel(FakeAppRepository())
 
         viewModel.selectMovie(FakeMovies.first())
-        viewModel.updateTheaterName("아트나인")
         viewModel.updateReleaseDateMillis(
             releaseDateMillis = 1_609_459_200_000L,
             nowMillis = 1_609_545_600_000L
@@ -201,6 +197,37 @@ class RegisterMovieViewModelTest {
 
     @Test
     fun createTicketFromShareStepSendsTicketRequestToRepository() = runBlocking {
+        val repository = FakeAppRepository()
+        val viewModel = RegisterMovieViewModel(repository)
+
+        viewModel.selectMovie(FakeMovies.first().copy(id = "1001"))
+        viewModel.updateReleaseDateMillis(
+            releaseDateMillis = 1_778_889_600_000L,
+            nowMillis = 1_778_976_000_000L
+        )
+        viewModel.updateRating(5)
+        viewModel.updateReview("작고 단단한 영화였어요")
+        viewModel.goToNextStep()
+
+        val result = viewModel.createTicket()
+
+        assertEquals(true, result)
+        assertEquals(
+            CreateTicketRequest(
+                movieId = "1001",
+                watchedDate = "2026-05-16",
+                watchedTime = "00:00",
+                cinema = "",
+                review = "작고 단단한 영화였어요"
+            ),
+            repository.createdTicketRequests.single()
+        )
+        assertEquals(false, viewModel.uiState.value.isTicketCreateLoading)
+        assertEquals(null, viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun createTicketDoesNotRequireTheaterNameBeforeCallingRepository() = runBlocking {
         val repository = FakeAppRepository()
         val viewModel = RegisterMovieViewModel(repository)
 

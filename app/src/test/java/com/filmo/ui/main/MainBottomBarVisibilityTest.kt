@@ -22,6 +22,11 @@ class MainBottomBarVisibilityTest {
                 currentDestination = ScreenDestination.Record
             )
         )
+        assertFalse(
+            shouldReserveBottomBarSpace(
+                currentDestination = ScreenDestination.RecordViewingInfo
+            )
+        )
     }
 
     @Test
@@ -35,7 +40,43 @@ class MainBottomBarVisibilityTest {
     }
 
     @Test
+    fun topLevelDestinationsPlaceBottomBarAboveContent() {
+        assertTrue(shouldPlaceBottomBarAboveContent(ScreenDestination.Feed))
+        assertTrue(shouldPlaceBottomBarAboveContent(ScreenDestination.Record))
+        assertTrue(shouldPlaceBottomBarAboveContent(ScreenDestination.TheaterFinder))
+        assertTrue(shouldPlaceBottomBarAboveContent(ScreenDestination.Collection))
+        assertTrue(shouldPlaceBottomBarAboveContent(ScreenDestination.Profile))
+    }
+
+    @Test
+    fun subDestinationsDoNotPlaceBottomBarAboveContent() {
+        assertFalse(
+            shouldPlaceBottomBarAboveContent(
+                ScreenDestination.RecordViewingInfo
+            )
+        )
+        assertFalse(
+            shouldPlaceBottomBarAboveContent(
+                ScreenDestination.CollectionDetail(ticketId = "ticket-1")
+            )
+        )
+        assertFalse(
+            shouldPlaceBottomBarAboveContent(
+                ScreenDestination.TheaterDetail(
+                    theaterId = "theater-1",
+                    initiallySaved = false
+                )
+            )
+        )
+    }
+
+    @Test
     fun subDestinationsDoNotReserveBottomBarSpace() {
+        assertFalse(
+            shouldReserveBottomBarSpace(
+                currentDestination = ScreenDestination.RecordViewingInfo
+            )
+        )
         assertFalse(
             shouldReserveBottomBarSpace(
                 currentDestination = ScreenDestination.CollectionDetail(ticketId = "ticket-1")
@@ -56,6 +97,11 @@ class MainBottomBarVisibilityTest {
         assertFalse(
             shouldResetRecordMovieState(
                 currentDestination = ScreenDestination.Record
+            )
+        )
+        assertFalse(
+            shouldResetRecordMovieState(
+                currentDestination = ScreenDestination.RecordViewingInfo
             )
         )
     }

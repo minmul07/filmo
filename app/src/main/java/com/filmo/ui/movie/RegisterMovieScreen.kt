@@ -1,12 +1,6 @@
 package com.filmo.ui.movie
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,10 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -38,7 +29,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.filmo.service.MovieCatalogItem
@@ -51,24 +41,18 @@ fun RegisterMovieScreen(
     modifier: Modifier = Modifier,
     searchBottomPadding: Dp = 0.dp,
     onFullScreenStepVisibilityChange: (Boolean) -> Unit = {},
-    onBack: () -> Unit = {},
-    onNavigateToCollection: () -> Unit = {}
+    onNavigateToViewingInfo: () -> Unit = {},
+    onBack: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val coroutineScope = rememberCoroutineScope()
-    val handleBack = {
-        val handledByStep = viewModel.goBack()
-        if (!handledByStep) {
-            onBack()
-        }
-    }
 
     LaunchedEffect(viewModel) {
         viewModel.loadMovieCatalog()
     }
 
     BackHandler {
-        handleBack()
+        onBack()
     }
 
     RegisterMovieContent(
@@ -89,19 +73,9 @@ fun RegisterMovieScreen(
         },
         onMovieClick = { movie ->
             viewModel.selectMovie(movie)
+            onNavigateToViewingInfo()
         },
-        onReleaseDateChange = viewModel::updateReleaseDateMillis,
-        onRatingChange = viewModel::updateRating,
-        onReviewChange = viewModel::updateReview,
-        onNext = viewModel::goToNextStep,
-        onBack = handleBack,
-        onShareClick = {
-            coroutineScope.launch {
-                if (viewModel.createTicket()) {
-                    onNavigateToCollection()
-                }
-            }
-        }
+        onBack = onBack
     )
 }
 
@@ -115,32 +89,12 @@ private fun RegisterMovieContent(
     onLoadMovies: () -> Unit = {},
     onLoadNextMovies: () -> Unit = {},
     onMovieClick: (MovieCatalogItem) -> Unit = {},
-    onReleaseDateChange: (Long?) -> Unit = {},
-    onRatingChange: (Int) -> Unit = {},
-    onReviewChange: (String) -> Unit = {},
-    onNext: () -> Unit = {},
-    onBack: () -> Unit = {},
-    onShareClick: () -> Unit = {}
+    onBack: () -> Unit = {}
 ) {
     val posterImageCache = rememberMoviePosterBitmapSessionCache()
-    val fullScreenStep = uiState.step.takeIf(::isFullScreenStepVisible)
-    var latestFullScreenStep by remember { mutableStateOf(fullScreenStep) }
-    val fullScreenStepTransitionState = remember {
-        MutableTransitionState(initialState = fullScreenStep != null)
-    }
 
-    LaunchedEffect(fullScreenStep) {
-        if (fullScreenStep != null) {
-            latestFullScreenStep = fullScreenStep
-        }
-        fullScreenStepTransitionState.targetState = fullScreenStep != null
-    }
-    val isFullScreenStepMounted = fullScreenStep != null ||
-        fullScreenStepTransitionState.currentState ||
-        fullScreenStepTransitionState.targetState
-
-    LaunchedEffect(isFullScreenStepMounted) {
-        onFullScreenStepVisibilityChange(isFullScreenStepMounted)
+    LaunchedEffect(Unit) {
+        onFullScreenStepVisibilityChange(false)
     }
 
     Scaffold(
@@ -178,84 +132,12 @@ private fun RegisterMovieContent(
                     onLoadNextMovies = onLoadNextMovies
                 )
             }
-
-            if (isFullScreenStepMounted) {
-                AnimatedVisibility(
-                    visibleState = fullScreenStepTransitionState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .zIndex(1f),
-                    enter = slideInVertically(
-                        animationSpec = tween(
-                            durationMillis = FullScreenStepEnterDurationMillis,
-                            easing = FullScreenStepEnterEasing
-                        ),
-                        initialOffsetY = ::fullScreenStepEnterOffsetY
-                    ),
-                    exit = slideOutVertically(
-                        animationSpec = tween(
-                            durationMillis = FullScreenStepExitDurationMillis,
-                            easing = FullScreenStepExitEasing
-                        ),
-                        targetOffsetY = ::fullScreenStepExitOffsetY
-                    ),
-                    label = "register_movie_step"
-                ) {
-                    val step = fullScreenStep ?: latestFullScreenStep
-                    if (step != null) {
-                        RegisterMovieFullScreenStep(
-                            step = step,
-                            uiState = uiState,
-                            posterImageCache = posterImageCache,
-                            onBack = onBack,
-                            onReleaseDateChange = onReleaseDateChange,
-                            onRatingChange = onRatingChange,
-                            onReviewChange = onReviewChange,
-                            onNext = onNext,
-                            onShareClick = onShareClick
-                        )
-                    }
-                }
-            }
         }
     }
 }
 
 @Composable
-private fun RegisterMovieFullScreenStep(
-    step: RegisterMovieStep,
-    uiState: RegisterMovieUiState,
-    posterImageCache: MoviePosterBitmapSessionCache,
-    onBack: () -> Unit,
-    onReleaseDateChange: (Long?) -> Unit,
-    onRatingChange: (Int) -> Unit,
-    onReviewChange: (String) -> Unit,
-    onNext: () -> Unit,
-    onShareClick: () -> Unit
-) {
-    when (step) {
-        RegisterMovieStep.MovieSearch -> Unit
-        RegisterMovieStep.MovieInfo -> ViewingInfoScreen(
-            uiState = uiState,
-            posterImageCache = posterImageCache,
-            onBack = onBack,
-            onReleaseDateChange = onReleaseDateChange,
-            onRatingChange = onRatingChange,
-            onReviewChange = onReviewChange,
-            onNext = onNext
-        )
-
-        RegisterMovieStep.Share -> TicketShareScreen(
-            uiState = uiState,
-            posterImageCache = posterImageCache,
-            onBack = onBack,
-            onShareClick = onShareClick
-        )
-    }
-}
-
-@Composable
-private fun TicketShareScreen(
+internal fun TicketShareScreen(
     uiState: RegisterMovieUiState,
     posterImageCache: MoviePosterBitmapSessionCache,
     onBack: () -> Unit,
@@ -285,19 +167,11 @@ internal fun isViewingInfoScreenStep(step: RegisterMovieStep): Boolean {
 }
 
 internal fun shouldCoverBottomBar(step: RegisterMovieStep): Boolean {
-    return isViewingInfoScreenStep(step) || step == RegisterMovieStep.Share
+    return false
 }
 
 internal fun isFullScreenStepVisible(step: RegisterMovieStep): Boolean {
-    return shouldCoverBottomBar(step)
-}
-
-internal fun fullScreenStepEnterOffsetY(fullHeight: Int): Int {
-    return fullHeight
-}
-
-internal fun fullScreenStepExitOffsetY(fullHeight: Int): Int {
-    return fullHeight
+    return false
 }
 
 @Composable
@@ -351,11 +225,6 @@ private val RegisterMovieStep.index: Int
         RegisterMovieStep.Share -> 2
     }
 
-private const val FullScreenStepEnterDurationMillis = 400
-private const val FullScreenStepExitDurationMillis = 300
-private val FullScreenStepEnterEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)
-private val FullScreenStepExitEasing = CubicBezierEasing(0.3f, 0.0f, 0.8f, 0.15f)
-
 @Preview(showBackground = true)
 @Composable
 private fun RegisterMovieContentPreview() {
@@ -375,7 +244,6 @@ private fun RegisterMovieContentPreview() {
                 releaseDateMillis = 1_609_459_200_000L,
                 genre = "드라마",
                 director = "임대형",
-                theaterName = "아트나인",
                 rating = 5,
                 review = "겨울 공기와 편지의 여운이 좋았다."
             )
