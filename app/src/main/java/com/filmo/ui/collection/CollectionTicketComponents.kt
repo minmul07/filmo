@@ -177,7 +177,9 @@ internal fun CollectionDetailTicketCard(
     val watchedDateText = remember(ticket.watchedDate) {
         ticket.watchedDate.toCollectionDetailWatchedDateText()
     }
-    val theaterText = ticket.theaterName.ifBlank { "영화관 미입력" }
+    val movieMetadataText = remember(ticket.genre, ticket.director, ticket.releaseYear, ticket.duration) {
+        ticket.toCollectionDetailMovieMetadataText()
+    }
     val ticketShape = remember {
         CollectionTicketShape(
             cornerCutout = 10.dp,
@@ -228,7 +230,7 @@ internal fun CollectionDetailTicketCard(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = theaterText,
+                            text = movieMetadataText,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -637,6 +639,15 @@ internal fun String.toCollectionDetailWatchedDateText(): String {
     }.getOrElse {
         this
     }
+}
+
+internal fun MovieTicket.toCollectionDetailMovieMetadataText(): String {
+    return listOfNotNull(
+        genre.takeIf { it.isNotBlank() },
+        director.takeIf { it.isNotBlank() }?.let { "$it 감독" },
+        releaseYear.takeIf { it > 0 }?.let { "${it}년" },
+        duration.takeIf { it.isNotBlank() }
+    ).joinToString(" · ").ifBlank { "독립영화" }
 }
 
 private val KoreanDayOfWeekLabels = listOf("월", "화", "수", "목", "금", "토", "일")

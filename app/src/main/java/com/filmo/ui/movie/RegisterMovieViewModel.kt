@@ -25,6 +25,22 @@ class RegisterMovieViewModel @Inject constructor(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(RegisterMovieUiState())
     val uiState: StateFlow<RegisterMovieUiState> = _uiState.asStateFlow()
+    private var movieCatalogLoadGeneration = 0
+
+    suspend fun loadMovieCatalogIfNeeded() {
+        val state = _uiState.value
+        if (state.isMovieCatalogLoading || state.hasLoadedMovieCatalog || state.movies.isNotEmpty()) {
+            Timber.d(
+                "RegisterMovieViewModel.loadMovieCatalogIfNeeded ignored loading=%s loaded=%s itemCount=%d",
+                state.isMovieCatalogLoading,
+                state.hasLoadedMovieCatalog,
+                state.movies.size
+            )
+            return
+        }
+
+        loadMovieCatalog()
+    }
 
     suspend fun loadMovieCatalog() {
         if (_uiState.value.isMovieCatalogLoading) {
@@ -32,6 +48,7 @@ class RegisterMovieViewModel @Inject constructor(
             return
         }
 
+        val loadGeneration = movieCatalogLoadGeneration
         Timber.d(
             "RegisterMovieViewModel.loadMovieCatalog request page=%d size=%d",
             InitialMovieCatalogPage,
@@ -61,6 +78,11 @@ class RegisterMovieViewModel @Inject constructor(
                 Timber.w(it, "RegisterMovieViewModel.loadMovieCatalog failed page=%d", InitialMovieCatalogPage)
             }
         _uiState.update { state ->
+            if (loadGeneration != movieCatalogLoadGeneration) {
+                Timber.d("RegisterMovieViewModel.loadMovieCatalog ignored stale result")
+                return@update state
+            }
+
             result.fold(
                 onSuccess = { page ->
                     state.copy(
@@ -76,7 +98,7 @@ class RegisterMovieViewModel @Inject constructor(
                 onFailure = {
                     state.copy(
                         isMovieCatalogLoading = false,
-                        hasLoadedMovieCatalog = true,
+                        hasLoadedMovieCatalog = false,
                         errorMessage = "영화 목록을 불러오지 못했어요. 다시 시도해 주세요."
                     )
                 }
@@ -393,6 +415,7 @@ class RegisterMovieViewModel @Inject constructor(
 
     fun reset() {
         Timber.d("RegisterMovieViewModel.reset")
+        movieCatalogLoadGeneration += 1
         _uiState.value = RegisterMovieUiState()
     }
 

@@ -8,6 +8,8 @@ import com.filmo.service.MovieDetail
 import com.filmo.service.MovieTicket
 import com.filmo.service.TicketCollection
 import com.filmo.service.UpdateTicketRequest
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -35,6 +37,51 @@ class RegisterMovieViewModelTest {
 
         assertEquals(listOf(0), repository.requestedMoviePages)
         assertEquals(listOf(20), repository.requestedMovieSizes)
+    }
+
+    @Test
+    fun loadMovieCatalogIfNeededFetchesAfterResetLeavesCatalogNotLoaded() = runBlocking {
+        val repository = FakeAppRepository()
+        val viewModel = RegisterMovieViewModel(repository)
+
+        viewModel.loadMovieCatalog()
+        viewModel.reset()
+        viewModel.loadMovieCatalogIfNeeded()
+
+        assertEquals(listOf(0, 0), repository.requestedMoviePages)
+        assertEquals(listOf("헤어질 결심", "윤희에게", "벌새", "소공녀"), viewModel.uiState.value.movies.map { it.title })
+    }
+
+    @Test
+    fun loadMovieCatalogIfNeededRetriesAfterFailedInitialLoad() = runBlocking {
+        val repository = FakeAppRepository(
+            moviePageResults = mutableListOf(
+                Result.failure(IllegalStateException("network unavailable")),
+                Result.success(MovieCatalogPage(items = FakeMovies, hasMore = false))
+            )
+        )
+        val viewModel = RegisterMovieViewModel(repository)
+
+        viewModel.loadMovieCatalogIfNeeded()
+        viewModel.loadMovieCatalogIfNeeded()
+
+        assertEquals(listOf(0, 0), repository.requestedMoviePages)
+        assertEquals(listOf("헤어질 결심", "윤희에게", "벌새", "소공녀"), viewModel.uiState.value.movies.map { it.title })
+        assertEquals(null, viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun resetIgnoresLateMovieCatalogFailureFromPreviousLoad() = runBlocking {
+        val repository = BlockingFakeAppRepository()
+        val viewModel = RegisterMovieViewModel(repository)
+        val loadJob = async { viewModel.loadMovieCatalog() }
+
+        repository.fetchStarted.await()
+        viewModel.reset()
+        repository.moviePageResult.complete(Result.failure(IllegalStateException("stale failure")))
+        loadJob.await()
+
+        assertEquals(RegisterMovieUiState(), viewModel.uiState.value)
     }
 
     @Test
@@ -267,7 +314,8 @@ class RegisterMovieViewModelTest {
 
     private class FakeAppRepository(
         private val moviePages: Map<Int, List<MovieCatalogItem>> = mapOf(0 to FakeMovies),
-        private val hasMoreByPage: Map<Int, Boolean> = mapOf(0 to false)
+        private val hasMoreByPage: Map<Int, Boolean> = mapOf(0 to false),
+        private val moviePageResults: MutableList<Result<MovieCatalogPage>> = mutableListOf()
     ) : AppRepository {
         val requestedMoviePages = mutableListOf<Int>()
         val requestedMovieSizes = mutableListOf<Int>()
@@ -292,6 +340,9 @@ class RegisterMovieViewModelTest {
         ): Result<MovieCatalogPage> {
             requestedMoviePages += page
             requestedMovieSizes += size
+            if (moviePageResults.isNotEmpty()) {
+                return moviePageResults.removeAt(0)
+            }
             return Result.success(
                 MovieCatalogPage(
                     items = moviePages[page].orEmpty(),
@@ -315,6 +366,54 @@ class RegisterMovieViewModelTest {
         override suspend fun createTicket(request: CreateTicketRequest): Result<Unit> {
             createdTicketRequests += request
             return Result.success(Unit)
+        }
+
+        override suspend fun deleteMyTicket(ticketId: String): Result<Unit> {
+            return Result.success(Unit)
+        }
+
+        override suspend fun removeSavedTicket(ticketId: String): Result<Unit> {
+            return Result.success(Unit)
+        }
+    }
+
+    private class BlockingFakeAppRepository : AppRepository {
+        val fetchStarted = CompletableDeferred<Unit>()
+        val moviePageResult = CompletableDeferred<Result<MovieCatalogPage>>()
+
+        override suspend fun ping(): Result<String> = Result.success("pong")
+
+        override suspend fun fetchMovieCatalog(
+            keyword: String?,
+            page: Int,
+            size: Int
+        ): Result<List<MovieCatalogItem>> {
+            return fetchMovieCatalogPage(keyword, page, size).map { it.items }
+        }
+
+        override suspend fun fetchMovieCatalogPage(
+            keyword: String?,
+            page: Int,
+            size: Int
+        ): Result<MovieCatalogPage> {
+            fetchStarted.complete(Unit)
+            return moviePageResult.await()
+        }
+
+        override suspend fun fetchMovieDetail(movieId: String): Result<MovieDetail> {
+            return Result.failure(UnsupportedOperationException("Not needed in this test"))
+        }
+
+        override suspend fun fetchTicketCollection(): Result<TicketCollection> {
+            return Result.success(TicketCollection(emptyList(), emptyList()))
+        }
+
+        override suspend fun updateMyTicket(request: UpdateTicketRequest): Result<MovieTicket> {
+            return Result.failure(UnsupportedOperationException("Not needed in this test"))
+        }
+
+        override suspend fun createTicket(request: CreateTicketRequest): Result<Unit> {
+            return Result.failure(UnsupportedOperationException("Not needed in this test"))
         }
 
         override suspend fun deleteMyTicket(ticketId: String): Result<Unit> {

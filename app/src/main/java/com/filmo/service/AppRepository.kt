@@ -119,7 +119,11 @@ data class MovieTicket(
     val review: String,
     val ownedByMe: Boolean,
     val savedByMe: Boolean,
-    val posterImagePath: String = ""
+    val posterImagePath: String = "",
+    val genre: String = "",
+    val director: String = "",
+    val releaseYear: Int = 0,
+    val duration: String = ""
 )
 
 data class TicketCollection(

@@ -326,7 +326,11 @@ class RemoteAppRepository @Inject constructor(
             review = string("review"),
             ownedByMe = ownedByMe,
             savedByMe = booleanOrNull("savedByMe") ?: !ownedByMe,
-            posterImagePath = movieDetail?.imagePath.orEmpty()
+            posterImagePath = movieDetail?.imagePath.orEmpty(),
+            genre = movieDetail?.genre.orEmpty(),
+            director = movieDetail?.director.orEmpty(),
+            releaseYear = movieDetail?.releaseYear ?: 0,
+            duration = movieDetail?.duration.orEmpty()
         )
     }
 

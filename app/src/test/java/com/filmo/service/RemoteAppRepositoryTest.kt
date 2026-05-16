@@ -345,7 +345,10 @@ class RemoteAppRepositoryTest {
                 review = "작고 단단한 영화였어요",
                 ownedByMe = true,
                 savedByMe = false,
-                posterImagePath = "poster.jpg"
+                posterImagePath = "poster.jpg",
+                genre = "드라마",
+                director = "테스트 감독",
+                releaseYear = 2024
             ),
             collection.myTickets.single()
         )
@@ -359,7 +362,10 @@ class RemoteAppRepositoryTest {
                 review = "저장해 두고 다시 보고 싶은 티켓",
                 ownedByMe = false,
                 savedByMe = true,
-                posterImagePath = "poster.jpg"
+                posterImagePath = "poster.jpg",
+                genre = "드라마",
+                director = "테스트 감독",
+                releaseYear = 2024
             ),
             collection.savedTickets.single()
         )
@@ -521,7 +527,10 @@ class RemoteAppRepositoryTest {
                 review = "수정한 감상평",
                 ownedByMe = true,
                 savedByMe = false,
-                posterImagePath = "poster.jpg"
+                posterImagePath = "poster.jpg",
+                genre = "드라마",
+                director = "테스트 감독",
+                releaseYear = 2024
             ),
             result.getOrThrow()
         )

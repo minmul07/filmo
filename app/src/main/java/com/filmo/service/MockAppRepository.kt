@@ -108,7 +108,11 @@ class MockAppRepository @Inject constructor() : AppRepository {
             review = "겨울 공기와 편지의 여운이 오래 남았다.",
             ownedByMe = true,
             savedByMe = false,
-            posterImagePath = "moonlit-winter.jpg"
+            posterImagePath = "moonlit-winter.jpg",
+            genre = "드라마",
+            director = "임대형",
+            releaseYear = 2019,
+            duration = "105분"
         )
     )
     private val savedTickets = mutableListOf(
@@ -121,7 +125,11 @@ class MockAppRepository @Inject constructor() : AppRepository {
             review = "영상미가 압도적이었습니다",
             ownedByMe = false,
             savedByMe = true,
-            posterImagePath = "decision-to-leave.jpg"
+            posterImagePath = "decision-to-leave.jpg",
+            genre = "로맨스/드라마",
+            director = "박찬욱",
+            releaseYear = 2022,
+            duration = "138분"
         ),
         MovieTicket(
             id = "saved-ticket-2",
@@ -132,7 +140,11 @@ class MockAppRepository @Inject constructor() : AppRepository {
             review = "작은 순간들이 오래 기억에 남았다.",
             ownedByMe = false,
             savedByMe = true,
-            posterImagePath = "house-of-hummingbird.jpg"
+            posterImagePath = "house-of-hummingbird.jpg",
+            genre = "드라마",
+            director = "김보라",
+            releaseYear = 2018,
+            duration = "138분"
         )
     )
 
@@ -237,7 +249,11 @@ class MockAppRepository @Inject constructor() : AppRepository {
             review = request.review,
             ownedByMe = true,
             savedByMe = false,
-            posterImagePath = movieDetail?.imagePath.orEmpty()
+            posterImagePath = movieDetail?.imagePath.orEmpty(),
+            genre = movieDetail?.genre.orEmpty(),
+            director = movieDetail?.director.orEmpty(),
+            releaseYear = movieDetail?.releaseYear ?: 0,
+            duration = movieDetail?.duration.orEmpty()
         )
         Unit
     }

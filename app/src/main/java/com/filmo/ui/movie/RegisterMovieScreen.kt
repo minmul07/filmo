@@ -48,7 +48,7 @@ fun RegisterMovieScreen(
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(viewModel) {
-        viewModel.loadMovieCatalog()
+        viewModel.loadMovieCatalogIfNeeded()
     }
 
     BackHandler {
