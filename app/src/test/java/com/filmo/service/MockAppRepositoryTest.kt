@@ -126,6 +126,17 @@ class MockAppRepositoryTest {
     }
 
     @Test
+    fun saveAndRemoveSavedTheaterReturnSuccessAfterMockDelay() = runBlocking {
+        val repository = MockAppRepository()
+
+        val saveResult = repository.saveTheater("indiespace")
+        val removeResult = repository.removeSavedTheater("indiespace")
+
+        assertTrue(saveResult.isSuccess)
+        assertTrue(removeResult.isSuccess)
+    }
+
+    @Test
     fun submitItemReturnsCreatedItemAfterMockDelay() = runBlocking {
         val repository = MockAppRepository()
         val request = SampleItemRequest(

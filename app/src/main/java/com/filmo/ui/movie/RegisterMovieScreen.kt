@@ -1,13 +1,10 @@
 package com.filmo.ui.movie
 
+import android.content.Intent
 import android.graphics.BitmapFactory
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,7 +21,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -36,16 +32,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -66,7 +58,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -75,17 +66,27 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -93,7 +94,6 @@ import com.filmo.BuildConfig
 import com.filmo.service.MovieCatalogItem
 import com.filmo.ui.theme.FilmoTheme
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -113,6 +113,7 @@ fun RegisterMovieScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     LaunchedEffect(viewModel) {
         viewModel.loadMovieCatalog()
@@ -143,7 +144,6 @@ fun RegisterMovieScreen(
         onReleaseDateChange = viewModel::updateReleaseDateMillis,
         onRatingChange = viewModel::updateRating,
         onReviewChange = viewModel::updateReview,
-        onTemplateClick = viewModel::selectTicketTemplate,
         onNext = viewModel::goToNextStep,
         onBack = {
             val handledByStep = viewModel.goBack()
@@ -151,10 +151,12 @@ fun RegisterMovieScreen(
                 onBack()
             }
         },
-        onPublishComplete = viewModel::markPublishingComplete,
-        onCollectionClick = {
-            viewModel.reset()
-            onNavigateToCollection()
+        onShareClick = {
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, toTicketShareText(uiState))
+            }
+            context.startActivity(Intent.createChooser(shareIntent, "티켓 공유"))
         }
     )
 }
@@ -171,11 +173,9 @@ private fun RegisterMovieContent(
     onReleaseDateChange: (Long?) -> Unit = {},
     onRatingChange: (Int) -> Unit = {},
     onReviewChange: (String) -> Unit = {},
-    onTemplateClick: (TicketTemplateOption) -> Unit = {},
     onNext: () -> Unit = {},
     onBack: () -> Unit = {},
-    onPublishComplete: () -> Unit = {},
-    onCollectionClick: () -> Unit = {}
+    onShareClick: () -> Unit = {}
 ) {
     var isDatePickerOpen by remember { mutableStateOf(false) }
     val posterImageCache = rememberMoviePosterBitmapSessionCache()
@@ -199,16 +199,12 @@ private fun RegisterMovieContent(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
-                .statusBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .padding(horizontal = 24.dp)
         ) {
             RegisterMovieHeader(
                 step = uiState.step,
-                isPublishComplete = uiState.isPublishComplete,
                 onBack = onBack
             )
-
-            Spacer(modifier = Modifier.height(16.dp))
 
             when (uiState.step) {
                 RegisterMovieStep.MovieSearch -> MovieSearchStep(
@@ -235,17 +231,10 @@ private fun RegisterMovieContent(
                     onNext = onNext
                 )
 
-                RegisterMovieStep.TicketTemplate -> TicketTemplateStep(
-                    selectedTemplate = uiState.selectedTicketTemplate,
-                    errorMessage = uiState.errorMessage,
-                    onTemplateClick = onTemplateClick,
-                    onNext = onNext
-                )
-
-                RegisterMovieStep.Publishing -> PublishingStep(
+                RegisterMovieStep.Share -> TicketShareStep(
                     uiState = uiState,
-                    onPublishComplete = onPublishComplete,
-                    onCollectionClick = onCollectionClick
+                    posterImageCache = posterImageCache,
+                    onShareClick = onShareClick
                 )
             }
         }
@@ -278,25 +267,8 @@ private fun RegisterMovieContent(
 @Composable
 private fun RegisterMovieHeader(
     step: RegisterMovieStep,
-    isPublishComplete: Boolean,
     onBack: () -> Unit
 ) {
-    if (step == RegisterMovieStep.Publishing) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = if (isPublishComplete) "티켓 발행 완료!" else "티켓 발행 중",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-        return
-    }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -315,7 +287,7 @@ private fun RegisterMovieHeader(
             style = MaterialTheme.typography.titleLarge,
             textAlign = TextAlign.Center
         )
-        if (step == RegisterMovieStep.MovieInfo) {
+        if (step == RegisterMovieStep.MovieInfo || step == RegisterMovieStep.Share) {
             IconButton(onClick = {}) {
                 Icon(
                     imageVector = Icons.Filled.MoreHoriz,
@@ -651,7 +623,7 @@ private fun MovieInfoStep(
                 onClick = onNext,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("티켓 디자인 선택")
+                Text("티켓 만들기")
             }
         }
     ) {
@@ -851,331 +823,245 @@ private fun RatingSelector(
 }
 
 @Composable
-private fun TicketTemplateStep(
-    selectedTemplate: TicketTemplateOption?,
-    errorMessage: String?,
-    onTemplateClick: (TicketTemplateOption) -> Unit,
-    onNext: () -> Unit
+private fun TicketShareStep(
+    uiState: RegisterMovieUiState,
+    posterImageCache: MoviePosterBitmapSessionCache,
+    onShareClick: () -> Unit
 ) {
     StepContent(
         action = {
             Button(
-                onClick = onNext,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("티켓 발행하기")
-            }
-        }
-    ) {
-        Text(
-            text = "티켓 디자인 선택",
-            style = MaterialTheme.typography.headlineSmall
-        )
-        Text(
-            text = "완성된 티켓 디자인이 준비되면 이 placeholder 카드들이 실제 디자인으로 교체됩니다.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            TicketTemplateOption.entries.chunked(2).forEach { rowItems ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    rowItems.forEach { option ->
-                        TicketTemplateCard(
-                            option = option,
-                            selected = option == selectedTemplate,
-                            onClick = { onTemplateClick(option) },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            }
-        }
-        ErrorText(errorMessage = errorMessage)
-    }
-}
-
-@Composable
-private fun TicketTemplateCard(
-    option: TicketTemplateOption,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val borderColor = if (selected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.outlineVariant
-    }
-
-    Card(
-        modifier = modifier
-            .aspectRatio(0.72f)
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
-            .semantics { role = Role.Button },
-        colors = CardDefaults.cardColors(
-            containerColor = if (selected) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceContainer
-            }
-        ),
-        border = BorderStroke(2.dp, borderColor)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Movie,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
+                onClick = onShareClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(68.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.inverseSurface,
+                    contentColor = MaterialTheme.colorScheme.inverseOnSurface
                 )
-                AnimatedVisibility(
-                    visible = selected,
-                    enter = fadeIn(animationSpec = tween(200)),
-                    exit = fadeOut(animationSpec = tween(100))
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = "선택됨",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-            Column(
-                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(
-                    text = option.label,
+                    text = "공유하기",
                     style = MaterialTheme.typography.titleMedium
                 )
-                Text(
-                    text = option.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
+        }
+    ) {
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            MovieShareTicket(
+                uiState = uiState,
+                posterImageCache = posterImageCache,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
 
 @Composable
-private fun PublishingStep(
+private fun MovieShareTicket(
     uiState: RegisterMovieUiState,
-    onPublishComplete: () -> Unit,
-    onCollectionClick: () -> Unit
+    posterImageCache: MoviePosterBitmapSessionCache,
+    modifier: Modifier = Modifier
 ) {
-    var progress by remember(
-        uiState.publishStartedAtMillis,
-        uiState.publishingStatus
+    val title = uiState.title.ifBlank { uiState.selectedMovie?.title.orEmpty() }.ifBlank { "영화 제목" }
+    val posterUrl = remember(
+        uiState.selectedMovie?.imagePath,
+        uiState.selectedMovieDetail?.imagePath
     ) {
-        mutableIntStateOf(
-            if (uiState.isPublishComplete) {
-                100
-            } else {
-                publishingProgressPercent(
-                    startedAtMillis = uiState.publishStartedAtMillis,
-                    nowMillis = System.currentTimeMillis()
-                )
-            }
+        uiState.selectedMovieDetail?.imagePath
+            ?.takeIf { it.isNotBlank() }
+            ?.toMovieImageUrl()
+            ?: uiState.selectedMovie?.imageUrl().orEmpty()
+    }
+    val releaseYear = uiState.selectedMovieDetail?.releaseYear
+        ?.takeIf { it > 0 }
+        ?: uiState.selectedMovie?.releaseYear
+    val metaText = listOfNotNull(
+        uiState.genre.takeIf { it.isNotBlank() },
+        uiState.director.takeIf { it.isNotBlank() }?.let { "$it 감독" },
+        releaseYear?.takeIf { it > 0 }?.let { "${it}년" },
+        uiState.selectedMovieDetail?.duration?.takeIf { it.isNotBlank() }
+    ).joinToString(" · ")
+    val watchedDate = uiState.releaseDateMillis.toWatchedDateWithYearText().ifBlank { "관람일" }
+    val ratingText = uiState.rating?.let { "$it/5점" } ?: "-/5점"
+    val ticketShape = remember {
+        TicketShape(
+            cornerCutout = 20.dp,
+            sideNotchRadius = 20.dp,
+            perforationFraction = TicketPerforationFraction
         )
     }
 
-    LaunchedEffect(uiState.publishStartedAtMillis, uiState.publishingStatus) {
-        if (uiState.publishingStatus != PublishingStatus.Publishing) {
-            progress = 100
-            return@LaunchedEffect
-        }
-
-        while (true) {
-            val currentProgress = publishingProgressPercent(
-                startedAtMillis = uiState.publishStartedAtMillis,
-                nowMillis = System.currentTimeMillis()
-            )
-            progress = currentProgress
-            if (currentProgress >= 100) {
-                onPublishComplete()
-                break
-            }
-            delay(32L)
-        }
-    }
-
-    val cardScale by animateFloatAsState(
-        targetValue = if (uiState.isPublishComplete) 1.03f else 1f,
-        animationSpec = tween(durationMillis = 300),
-        label = "ticket_complete_scale"
-    )
-
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.SpaceBetween,
-        horizontalAlignment = Alignment.CenterHorizontally
+    Surface(
+        modifier = modifier
+            .aspectRatio(TicketAspectRatio)
+            .semantics(mergeDescendants = true) {
+                contentDescription = "$title 티켓, 별점 $ratingText, 관람일 $watchedDate"
+            },
+        shape = ticketShape,
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 3.dp
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            TicketPreview(
-                uiState = uiState,
-                modifier = Modifier.graphicsLayer {
-                    scaleX = cardScale
-                    scaleY = cardScale
-                }
-            )
-            Spacer(modifier = Modifier.height(28.dp))
-            LinearProgressIndicator(
-                progress = { progress / 100f },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                text = "$progress%",
-                modifier = Modifier.padding(top = 12.dp),
-                style = MaterialTheme.typography.titleMedium
-            )
-            AnimatedVisibility(
-                visible = uiState.isPublishComplete,
-                enter = fadeIn(animationSpec = tween(300)),
-                exit = fadeOut(animationSpec = tween(200))
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Check,
-                    contentDescription = "티켓 발행 완료",
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(
                     modifier = Modifier
-                        .padding(top = 20.dp)
-                        .size(48.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                        .fillMaxWidth()
+                        .weight(TicketPerforationFraction)
+                ) {
+                    MoviePosterImage(
+                        imageUrl = posterUrl,
+                        title = title,
+                        imageCache = posterImageCache,
+                        modifier = Modifier.fillMaxSize(),
+                        shape = RoundedCornerShape(0.dp),
+                        showBorder = false
+                    )
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
+                            .padding(horizontal = 22.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = metaText.ifBlank { "독립영화" },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                TicketDetailArea(
+                    ratingText = ratingText,
+                    watchedDate = watchedDate,
+                    review = uiState.review,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f - TicketPerforationFraction)
                 )
             }
-        }
-
-        AnimatedVisibility(
-            visible = uiState.isPublishComplete,
-            enter = fadeIn(animationSpec = tween(300)),
-            exit = fadeOut(animationSpec = tween(200))
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = {},
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Share,
-                            contentDescription = null
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("피드 공유")
-                    }
-                    OutlinedButton(
-                        onClick = {},
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Download,
-                            contentDescription = "이미지 저장"
-                        )
-                    }
-                }
-                Button(
-                    onClick = onCollectionClick,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("내 컬렉션으로 이동")
-                }
-            }
+            TicketPerforationLine(
+                modifier = Modifier.fillMaxSize(),
+                fraction = TicketPerforationFraction
+            )
         }
     }
 }
 
 @Composable
-private fun TicketPreview(
-    uiState: RegisterMovieUiState,
+private fun TicketDetailArea(
+    ratingText: String,
+    watchedDate: String,
+    review: String,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    Column(
         modifier = modifier
-            .fillMaxWidth()
-            .aspectRatio(1.65f),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer
-        ),
-        shape = RoundedCornerShape(18.dp)
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .padding(start = 22.dp, top = 48.dp, end = 22.dp, bottom = 22.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "FILMO TICKET",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-                Text(
-                    text = uiState.selectedTicketTemplate?.label.orEmpty(),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-            }
-            Column(
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Text(
-                    text = uiState.title.ifBlank { "영화 제목" },
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-                Text(
-                    text = uiState.genre.ifBlank { "장르" },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-                Text(
-                    text = uiState.releaseDateMillis.toDateText().ifBlank { "관람일" },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-                Text(
-                    text = uiState.theaterName.ifBlank { "영화관" },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-                Text(
-                    text = uiState.rating?.let { "별점 $it/5" }.orEmpty(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-            }
+            TicketInfoBlock(
+                label = "별점",
+                value = ratingText,
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Star,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = RatingSelectedColor
+                    )
+                },
+                modifier = Modifier.weight(0.8f)
+            )
+            TicketInfoBlock(
+                label = "관람일",
+                value = watchedDate,
+                modifier = Modifier.weight(1.4f)
+            )
         }
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                text = "관람 후기",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = review.ifBlank { "남긴 관람 후기가 없어요." },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun TicketInfoBlock(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    leadingIcon: (@Composable () -> Unit)? = null
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            leadingIcon?.invoke()
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun TicketPerforationLine(
+    fraction: Float,
+    modifier: Modifier = Modifier
+) {
+    val lineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f)
+    Canvas(modifier = modifier) {
+        val y = size.height * fraction
+        drawLine(
+            color = lineColor,
+            start = androidx.compose.ui.geometry.Offset(42.dp.toPx(), y),
+            end = androidx.compose.ui.geometry.Offset(size.width - 42.dp.toPx(), y),
+            strokeWidth = 2.dp.toPx(),
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(18.dp.toPx(), 14.dp.toPx()))
+        )
     }
 }
 
@@ -1202,7 +1088,6 @@ private fun StepContent(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             content = content
         )
-        Spacer(modifier = Modifier.height(16.dp))
         action()
     }
 }
@@ -1281,26 +1166,15 @@ private val RegisterMovieStep.title: String
     get() = when (this) {
         RegisterMovieStep.MovieSearch -> "영화 검색"
         RegisterMovieStep.MovieInfo -> "관람 정보 입력"
-        RegisterMovieStep.TicketTemplate -> "티켓 사진 선택"
-        RegisterMovieStep.Publishing -> "티켓 발행"
+        RegisterMovieStep.Share -> "관람 정보 입력"
     }
 
 private val RegisterMovieStep.index: Int
     get() = when (this) {
         RegisterMovieStep.MovieSearch -> 1
         RegisterMovieStep.MovieInfo -> 2
-        RegisterMovieStep.TicketTemplate -> 3
-        RegisterMovieStep.Publishing -> 4
+        RegisterMovieStep.Share -> 2
     }
-
-private fun Long?.toDateText(): String {
-    return this?.let { millis ->
-        Instant.ofEpochMilli(millis)
-            .atZone(ZoneId.systemDefault())
-            .toLocalDate()
-            .format(DateTimeFormatter.ISO_LOCAL_DATE)
-    }.orEmpty()
-}
 
 private fun Long?.toWatchedYearText(): String {
     return this?.let { millis ->
@@ -1318,6 +1192,30 @@ private fun Long?.toWatchedDateText(): String {
             .toLocalDate()
             .format(DateTimeFormatter.ofPattern("MM월 dd일(E)", Locale.KOREAN))
     }.orEmpty()
+}
+
+private fun Long?.toWatchedDateWithYearText(): String {
+    return this?.let { millis ->
+        Instant.ofEpochMilli(millis)
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
+            .format(DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 (E)", Locale.KOREAN))
+    }.orEmpty()
+}
+
+private fun toTicketShareText(uiState: RegisterMovieUiState): String {
+    val titleText = uiState.title.ifBlank { uiState.selectedMovie?.title.orEmpty() }.ifBlank { "영화" }
+    val watchedDateText = uiState.releaseDateMillis.toWatchedDateWithYearText().ifBlank { "관람일 미입력" }
+    val ratingText = uiState.rating?.let { "$it/5점" } ?: "별점 미입력"
+    val reviewText = uiState.review.ifBlank { "관람 후기를 남기지 않았어요." }
+
+    return listOf(
+        "FILMO 티켓",
+        titleText,
+        watchedDateText,
+        ratingText,
+        reviewText
+    ).joinToString(separator = "\n")
 }
 
 @Composable
@@ -1376,9 +1274,107 @@ private fun String.urlTypeForLog(): String {
     }
 }
 
+private class TicketShape(
+    private val cornerCutout: Dp,
+    private val sideNotchRadius: Dp,
+    private val perforationFraction: Float
+) : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        val corner = with(density) { cornerCutout.toPx() }.coerceAtMost(size.minDimension / 6f)
+        val notch = with(density) { sideNotchRadius.toPx() }.coerceAtMost(size.minDimension / 6f)
+        val perforationY = (size.height * perforationFraction).coerceIn(
+            corner + notch,
+            size.height - corner - notch
+        )
+        val path = Path().apply {
+            moveTo(corner, 0f)
+            lineTo(size.width - corner, 0f)
+            arcTo(
+                rect = Rect(
+                    left = size.width - corner,
+                    top = -corner,
+                    right = size.width + corner,
+                    bottom = corner
+                ),
+                startAngleDegrees = 180f,
+                sweepAngleDegrees = -90f,
+                forceMoveTo = false
+            )
+            lineTo(size.width, perforationY - notch)
+            arcTo(
+                rect = Rect(
+                    left = size.width - notch,
+                    top = perforationY - notch,
+                    right = size.width + notch,
+                    bottom = perforationY + notch
+                ),
+                startAngleDegrees = -90f,
+                sweepAngleDegrees = -180f,
+                forceMoveTo = false
+            )
+            lineTo(size.width, size.height - corner)
+            arcTo(
+                rect = Rect(
+                    left = size.width - corner,
+                    top = size.height - corner,
+                    right = size.width + corner,
+                    bottom = size.height + corner
+                ),
+                startAngleDegrees = -90f,
+                sweepAngleDegrees = -90f,
+                forceMoveTo = false
+            )
+            lineTo(corner, size.height)
+            arcTo(
+                rect = Rect(
+                    left = -corner,
+                    top = size.height - corner,
+                    right = corner,
+                    bottom = size.height + corner
+                ),
+                startAngleDegrees = 0f,
+                sweepAngleDegrees = -90f,
+                forceMoveTo = false
+            )
+            lineTo(0f, perforationY + notch)
+            arcTo(
+                rect = Rect(
+                    left = -notch,
+                    top = perforationY - notch,
+                    right = notch,
+                    bottom = perforationY + notch
+                ),
+                startAngleDegrees = 90f,
+                sweepAngleDegrees = -180f,
+                forceMoveTo = false
+            )
+            lineTo(0f, corner)
+            arcTo(
+                rect = Rect(
+                    left = -corner,
+                    top = -corner,
+                    right = corner,
+                    bottom = corner
+                ),
+                startAngleDegrees = 90f,
+                sweepAngleDegrees = -90f,
+                forceMoveTo = false
+            )
+            close()
+        }
+        return Outline.Generic(path)
+    }
+}
+
 private val RatingSelectedColor = Color(0xFF7887CF)
 private val RatingUnselectedColor = Color(0xFFDCDCDC)
 private const val MovieCatalogPrefetchThreshold = 5
+private const val TicketAspectRatio = 0.57f
+private const val TicketPerforationFraction = 0.69f
 
 @Preview(showBackground = true)
 @Composable

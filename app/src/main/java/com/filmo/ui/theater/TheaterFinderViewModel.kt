@@ -3,17 +3,20 @@ package com.filmo.ui.theater
 import androidx.lifecycle.ViewModel
 import com.filmo.service.AppRepository
 import com.filmo.service.Theater
+import com.filmo.service.TheaterBookmarkStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import timber.log.Timber
 import javax.inject.Inject
 
 @HiltViewModel
 class TheaterFinderViewModel @Inject constructor(
-    private val appRepository: AppRepository
+    private val appRepository: AppRepository,
+    private val theaterBookmarkStore: TheaterBookmarkStore
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(TheaterFinderUiState())
     val uiState: StateFlow<TheaterFinderUiState> = _uiState.asStateFlow()
@@ -24,6 +27,7 @@ class TheaterFinderViewModel @Inject constructor(
             return
         }
 
+        val savedTheaterIds = theaterBookmarkStore.savedTheaterIds.first()
         Timber.d(
             "TheaterFinderViewModel.loadTheaters request page=%d size=%d",
             InitialTheaterPage,
@@ -32,6 +36,7 @@ class TheaterFinderViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 isLoading = true,
+                savedTheaterIds = savedTheaterIds,
                 errorMessage = null
             )
         }
@@ -140,27 +145,119 @@ class TheaterFinderViewModel @Inject constructor(
         }
     }
 
-    fun toggleSaved(theaterId: String) {
-        Timber.d("TheaterFinderViewModel.toggleSaved theaterId=%s", theaterId)
-        _uiState.update { state ->
-            val savedIds = if (theaterId in state.savedTheaterIds) {
-                state.savedTheaterIds - theaterId
-            } else {
-                state.savedTheaterIds + theaterId
-            }
-            state.copy(savedTheaterIds = savedIds)
+    suspend fun saveTheater(theaterId: String): Boolean {
+        val currentState = _uiState.value
+        if (theaterId in currentState.updatingBookmarkTheaterIds) {
+            Timber.d("TheaterFinderViewModel.saveTheater ignored: updating theaterId=%s", theaterId)
+            return false
         }
+
+        Timber.d("TheaterFinderViewModel.saveTheater request theaterId=%s", theaterId)
+        _uiState.update { state ->
+            state.copy(
+                updatingBookmarkTheaterIds = state.updatingBookmarkTheaterIds + theaterId,
+                bookmarkErrorMessage = null
+            )
+        }
+
+        val result = appRepository.saveTheater(theaterId).fold(
+            onSuccess = {
+                runCatching {
+                    theaterBookmarkStore.saveTheaterId(theaterId)
+                }
+            },
+            onFailure = { Result.failure(it) }
+        )
+        result
+            .onSuccess {
+                Timber.d("TheaterFinderViewModel.saveTheater success theaterId=%s", theaterId)
+            }
+            .onFailure {
+                Timber.w(it, "TheaterFinderViewModel.saveTheater failed theaterId=%s", theaterId)
+            }
+
+        _uiState.update { state ->
+            result.fold(
+                onSuccess = {
+                    state.copy(
+                        savedTheaterIds = state.savedTheaterIds + theaterId,
+                        updatingBookmarkTheaterIds = state.updatingBookmarkTheaterIds - theaterId,
+                        bookmarkErrorMessage = null
+                    )
+                },
+                onFailure = {
+                    state.copy(
+                        updatingBookmarkTheaterIds = state.updatingBookmarkTheaterIds - theaterId,
+                        bookmarkErrorMessage = "영화관을 저장하지 못했어요. 다시 시도해 주세요."
+                    )
+                }
+            )
+        }
+        return result.isSuccess
+    }
+
+    suspend fun removeSavedTheater(theaterId: String): Boolean {
+        val currentState = _uiState.value
+        if (theaterId in currentState.updatingBookmarkTheaterIds) {
+            Timber.d("TheaterFinderViewModel.removeSavedTheater ignored: updating theaterId=%s", theaterId)
+            return false
+        }
+
+        Timber.d("TheaterFinderViewModel.removeSavedTheater request theaterId=%s", theaterId)
+        _uiState.update { state ->
+            state.copy(
+                updatingBookmarkTheaterIds = state.updatingBookmarkTheaterIds + theaterId,
+                bookmarkErrorMessage = null
+            )
+        }
+
+        val result = appRepository.removeSavedTheater(theaterId).fold(
+            onSuccess = {
+                runCatching {
+                    theaterBookmarkStore.removeTheaterId(theaterId)
+                }
+            },
+            onFailure = { Result.failure(it) }
+        )
+        result
+            .onSuccess {
+                Timber.d("TheaterFinderViewModel.removeSavedTheater success theaterId=%s", theaterId)
+            }
+            .onFailure {
+                Timber.w(it, "TheaterFinderViewModel.removeSavedTheater failed theaterId=%s", theaterId)
+            }
+
+        _uiState.update { state ->
+            result.fold(
+                onSuccess = {
+                    state.copy(
+                        savedTheaterIds = state.savedTheaterIds - theaterId,
+                        updatingBookmarkTheaterIds = state.updatingBookmarkTheaterIds - theaterId,
+                        bookmarkErrorMessage = null
+                    )
+                },
+                onFailure = {
+                    state.copy(
+                        updatingBookmarkTheaterIds = state.updatingBookmarkTheaterIds - theaterId,
+                        bookmarkErrorMessage = "영화관 저장을 취소하지 못했어요. 다시 시도해 주세요."
+                    )
+                }
+            )
+        }
+        return result.isSuccess
     }
 }
 
 data class TheaterFinderUiState(
     val theaters: List<Theater> = emptyList(),
     val savedTheaterIds: Set<String> = emptySet(),
+    val updatingBookmarkTheaterIds: Set<String> = emptySet(),
     val theaterPage: Int = InitialTheaterPage,
     val canLoadMore: Boolean = true,
     val isLoading: Boolean = false,
     val isAppending: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val bookmarkErrorMessage: String? = null
 )
 
 private const val InitialTheaterPage = 0

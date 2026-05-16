@@ -2,6 +2,7 @@ package com.filmo.ui.theater
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -47,9 +49,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.filmo.service.Theater
 import com.filmo.ui.theme.FilmoTheme
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 @Composable
 fun TheaterFinderScreen(
+    onTheaterClick: (theaterId: String, initiallySaved: Boolean) -> Unit,
+    syncedSavedTheaterIds: Set<String>? = null,
+    onBookmarkChanged: (theaterId: String, saved: Boolean) -> Unit = { _, _ -> },
     viewModel: TheaterFinderViewModel = hiltViewModel(),
     modifier: Modifier = Modifier
 ) {
@@ -61,7 +67,11 @@ fun TheaterFinderScreen(
     }
 
     TheaterFinderContent(
-        uiState = uiState,
+        uiState = if (syncedSavedTheaterIds == null) {
+            uiState
+        } else {
+            uiState.copy(savedTheaterIds = uiState.savedTheaterIds + syncedSavedTheaterIds)
+        },
         modifier = modifier,
         onRetryClick = {
             coroutineScope.launch {
@@ -73,7 +83,23 @@ fun TheaterFinderScreen(
                 viewModel.loadNextTheaterPage()
             }
         },
-        onSaveClick = viewModel::toggleSaved
+        onTheaterClick = { theater, saved ->
+            Timber.d("TheaterFinderScreen.theaterClick theaterId=%s saved=%s", theater.id, saved)
+            onTheaterClick(theater.id, saved)
+        },
+        onSaveClick = { theater, saved ->
+            Timber.d("TheaterFinderScreen.bookmarkClick theaterId=%s saved=%s", theater.id, saved)
+            coroutineScope.launch {
+                val changed = if (saved) {
+                    viewModel.removeSavedTheater(theater.id)
+                } else {
+                    viewModel.saveTheater(theater.id)
+                }
+                if (changed) {
+                    onBookmarkChanged(theater.id, !saved)
+                }
+            }
+        }
     )
 }
 
@@ -83,7 +109,8 @@ private fun TheaterFinderContent(
     modifier: Modifier = Modifier,
     onRetryClick: () -> Unit = {},
     onLoadNextTheaters: () -> Unit = {},
-    onSaveClick: (String) -> Unit = {}
+    onTheaterClick: (Theater, Boolean) -> Unit = { _, _ -> },
+    onSaveClick: (Theater, Boolean) -> Unit = { _, _ -> }
 ) {
     val listState = rememberLazyListState()
     val shouldLoadMore by remember {
@@ -147,6 +174,19 @@ private fun TheaterFinderContent(
                 }
             }
 
+            if (uiState.bookmarkErrorMessage != null) {
+                item(
+                    key = "theater_finder_bookmark_error",
+                    contentType = "inline_error"
+                ) {
+                    Text(
+                        text = uiState.bookmarkErrorMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+
             when {
                 uiState.isLoading -> item(
                     key = "theater_finder_loading",
@@ -186,10 +226,13 @@ private fun TheaterFinderContent(
                         key = { it.listKey },
                         contentType = { "theater" }
                     ) { theater ->
+                        val saved = theater.id in uiState.savedTheaterIds
                         TheaterListItem(
                             theater = theater,
-                            saved = theater.id in uiState.savedTheaterIds,
-                            onSaveClick = { onSaveClick(theater.id) }
+                            saved = saved,
+                            bookmarkUpdating = theater.id in uiState.updatingBookmarkTheaterIds,
+                            onClick = { onTheaterClick(theater, saved) },
+                            onSaveClick = { onSaveClick(theater, saved) }
                         )
                     }
 
@@ -214,13 +257,19 @@ private fun TheaterFinderContent(
 private fun TheaterListItem(
     theater: Theater,
     saved: Boolean,
+    bookmarkUpdating: Boolean,
+    onClick: () -> Unit,
     onSaveClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(58.dp),
+            .height(58.dp)
+            .clickable(
+                role = Role.Button,
+                onClick = onClick
+            ),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -245,13 +294,16 @@ private fun TheaterListItem(
         }
         IconButton(
             onClick = onSaveClick,
-            modifier = Modifier.size(44.dp)
+            modifier = Modifier.size(44.dp),
+            enabled = !bookmarkUpdating
         ) {
             Icon(
                 imageVector = if (saved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                 contentDescription = if (saved) "저장 취소" else "영화관 저장",
                 tint = if (saved) {
                     MaterialTheme.colorScheme.primary
+                } else if (bookmarkUpdating) {
+                    MaterialTheme.colorScheme.outlineVariant
                 } else {
                     MaterialTheme.colorScheme.outline
                 }

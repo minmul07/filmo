@@ -22,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -42,6 +43,7 @@ import com.filmo.ui.collection.CollectionScreen
 import com.filmo.ui.feed.FeedScreen
 import com.filmo.ui.movie.RegisterMovieScreen
 import com.filmo.ui.profile.ProfileRoute
+import com.filmo.ui.theater.TheaterDetailScreen
 import com.filmo.ui.theater.TheaterFinderScreen
 
 @Composable
@@ -50,10 +52,18 @@ fun MainScreen(
 ) {
     val backStack = rememberNavBackStack(startDestination)
     val currentDestination = backStack.lastOrNull() as? ScreenDestination ?: startDestination
+    var savedTheaterIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     val navigateToTopLevelDestination: (ScreenDestination) -> Unit = { destination ->
         if (currentDestination != destination) {
             backStack.clear()
             backStack.add(destination)
+        }
+    }
+    val onTheaterBookmarkChanged: (String, Boolean) -> Unit = { theaterId, saved ->
+        savedTheaterIds = if (saved) {
+            savedTheaterIds + theaterId
+        } else {
+            savedTheaterIds - theaterId
         }
     }
     val navigateBack = {
@@ -64,6 +74,7 @@ fun MainScreen(
     val isRecordDestination = currentDestination == ScreenDestination.Record
     val isCollectionSubDestination = currentDestination is ScreenDestination.CollectionDetail ||
         currentDestination is ScreenDestination.CollectionEdit
+    val isTheaterSubDestination = currentDestination is ScreenDestination.TheaterDetail
     val layoutDirection = LocalLayoutDirection.current
 
     Scaffold(
@@ -71,12 +82,12 @@ fun MainScreen(
         bottomBar = {
             FilmoBottomBar(
                 currentDestination = currentDestination,
-                hidden = isRecordDestination || isCollectionSubDestination,
+                hidden = isRecordDestination || isCollectionSubDestination || isTheaterSubDestination,
                 onDestinationClick = navigateToTopLevelDestination
             )
         }
     ) { innerPadding ->
-        val contentPadding = if (isRecordDestination || isCollectionSubDestination) {
+        val contentPadding = if (isRecordDestination || isCollectionSubDestination || isTheaterSubDestination) {
             PaddingValues(
                 start = innerPadding.calculateStartPadding(layoutDirection),
                 top = innerPadding.calculateTopPadding(),
@@ -112,7 +123,30 @@ fun MainScreen(
                 }
 
                 entry<ScreenDestination.TheaterFinder> {
-                    TheaterFinderScreen()
+                    TheaterFinderScreen(
+                        syncedSavedTheaterIds = savedTheaterIds,
+                        onBookmarkChanged = onTheaterBookmarkChanged,
+                        onTheaterClick = { theaterId, initiallySaved ->
+                            if (initiallySaved) {
+                                onTheaterBookmarkChanged(theaterId, true)
+                            }
+                            backStack.add(
+                                ScreenDestination.TheaterDetail(
+                                    theaterId = theaterId,
+                                    initiallySaved = initiallySaved
+                                )
+                            )
+                        }
+                    )
+                }
+
+                entry<ScreenDestination.TheaterDetail> {
+                    TheaterDetailScreen(
+                        theaterId = it.theaterId,
+                        initiallySaved = it.initiallySaved,
+                        onBookmarkChanged = onTheaterBookmarkChanged,
+                        onBack = navigateBack
+                    )
                 }
 
                 entry<ScreenDestination.Collection> {

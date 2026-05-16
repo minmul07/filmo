@@ -374,6 +374,28 @@ class RemoteAppRepositoryTest {
         assertEquals("https://map.naver.com", result.getOrThrow().naverMapUrl)
     }
 
+    @Test
+    fun saveTheaterCallsSwaggerSaveEndpoint() = runBlocking {
+        val apiService = FakeApiService()
+        val repository = RemoteAppRepository(apiService)
+
+        val result = repository.saveTheater("T001")
+
+        assertTrue(result.isSuccess)
+        assertEquals("T001", apiService.savedTheaterId)
+    }
+
+    @Test
+    fun removeSavedTheaterCallsSwaggerUnsaveEndpoint() = runBlocking {
+        val apiService = FakeApiService()
+        val repository = RemoteAppRepository(apiService)
+
+        val result = repository.removeSavedTheater("T001")
+
+        assertTrue(result.isSuccess)
+        assertEquals("T001", apiService.removedSavedTheaterId)
+    }
+
     private class FakeApiService(
         private val signupResponse: String = """{"data":{"accessToken":"signup-token"}}""",
         private val loginResponse: String = """{"data":{"accessToken":"login-token"}}""",
@@ -397,6 +419,10 @@ class RemoteAppRepositoryTest {
         var requestedTheaterPage: Int? = null
             private set
         var requestedTheaterSize: Int? = null
+            private set
+        var savedTheaterId: String? = null
+            private set
+        var removedSavedTheaterId: String? = null
             private set
 
         override suspend fun ping(): ResponseBody = """{"data":null}""".toResponseBody()
@@ -463,6 +489,16 @@ class RemoteAppRepositoryTest {
 
         override suspend fun fetchTheater(theaCd: String): ResponseBody =
             theaterResponse.toResponseBody()
+
+        override suspend fun saveTheater(theaCd: String): ResponseBody {
+            savedTheaterId = theaCd
+            return """{"data":"ok"}""".toResponseBody()
+        }
+
+        override suspend fun removeSavedTheater(theaCd: String): ResponseBody {
+            removedSavedTheaterId = theaCd
+            return """{"data":"ok"}""".toResponseBody()
+        }
     }
 
     private class CapturingTimberTree : Timber.Tree() {

@@ -122,6 +122,7 @@ class MockAppRepository @Inject constructor() : AppRepository {
             naverMapUrl = "https://map.naver.com"
         )
     )
+    private val savedTheaterIds = mutableSetOf<String>()
     private val myTickets = mutableListOf(
         MovieTicket(
             id = "my-ticket-1",
@@ -272,6 +273,17 @@ class MockAppRepository @Inject constructor() : AppRepository {
     override suspend fun fetchTheater(theaterId: String): Result<Theater> = withMockDelay("fetchTheater(theaterId=$theaterId)") {
         theaters.firstOrNull { it.id == theaterId }
             ?: error("Theater not found")
+    }
+
+    override suspend fun saveTheater(theaterId: String): Result<Unit> = withMockDelay("saveTheater(theaterId=$theaterId)") {
+        require(theaters.any { it.id == theaterId }) { "Theater not found" }
+        savedTheaterIds += theaterId
+        Unit
+    }
+
+    override suspend fun removeSavedTheater(theaterId: String): Result<Unit> = withMockDelay("removeSavedTheater(theaterId=$theaterId)") {
+        savedTheaterIds -= theaterId
+        Unit
     }
 
     override suspend fun fetchTicketCollection(): Result<TicketCollection> = withMockDelay("fetchTicketCollection") {

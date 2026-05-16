@@ -13,7 +13,6 @@ import com.filmo.service.UpdateTicketRequest
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RegisterMovieViewModelTest {
@@ -118,11 +117,11 @@ class RegisterMovieViewModelTest {
         viewModel.goToNextStep()
 
         assertEquals(RegisterMovieStep.MovieInfo, viewModel.uiState.value.step)
-        assertEquals("영화관, 관람일, 별점, 관람 후기를 입력해 주세요.", viewModel.uiState.value.errorMessage)
+        assertEquals("관람일, 별점, 관람 후기를 입력해 주세요.", viewModel.uiState.value.errorMessage)
     }
 
     @Test
-    fun viewingInfoIsRequiredForTicketTemplateStep() {
+    fun viewingInfoMovesDirectlyToShareStep() {
         val viewModel = RegisterMovieViewModel(FakeAppRepository())
 
         viewModel.selectMovie(FakeMovies.first())
@@ -135,7 +134,7 @@ class RegisterMovieViewModelTest {
         viewModel.updateReview("다시 곱씹게 되는 영화.")
         viewModel.goToNextStep()
 
-        assertEquals(RegisterMovieStep.TicketTemplate, viewModel.uiState.value.step)
+        assertEquals(RegisterMovieStep.Share, viewModel.uiState.value.step)
         assertEquals(null, viewModel.uiState.value.errorMessage)
     }
 
@@ -153,7 +152,7 @@ class RegisterMovieViewModelTest {
     }
 
     @Test
-    fun publishRequiresTemplateSelection() {
+    fun shareStepDoesNotRequireTemplateSelection() {
         val viewModel = RegisterMovieViewModel(FakeAppRepository())
 
         viewModel.selectMovie(FakeMovies.first())
@@ -165,62 +164,11 @@ class RegisterMovieViewModelTest {
         viewModel.updateRating(5)
         viewModel.updateReview("좋았다.")
         viewModel.goToNextStep()
-        viewModel.goToNextStep(nowMillis = 1_609_545_600_000L)
-
-        assertEquals(RegisterMovieStep.TicketTemplate, viewModel.uiState.value.step)
-        assertEquals("티켓 디자인을 선택해 주세요.", viewModel.uiState.value.errorMessage)
-    }
-
-    @Test
-    fun selectingTemplateAndPublishingStoresStartTime() {
-        val viewModel = RegisterMovieViewModel(FakeAppRepository())
-        val now = 1_609_545_600_000L
-
-        viewModel.selectMovie(FakeMovies.first())
-        viewModel.updateTheaterName("아트나인")
-        viewModel.updateReleaseDateMillis(1_609_459_200_000L, nowMillis = now)
-        viewModel.updateRating(5)
-        viewModel.updateReview("좋았다.")
         viewModel.goToNextStep()
-        viewModel.selectTicketTemplate(TicketTemplateOption.Classic)
-        viewModel.goToNextStep(nowMillis = now)
 
         val state = viewModel.uiState.value
-        assertEquals(RegisterMovieStep.Publishing, state.step)
-        assertEquals(PublishingStatus.Publishing, state.publishingStatus)
-        assertEquals(now, state.publishStartedAtMillis)
-        assertFalse(state.isPublishComplete)
-    }
-
-    @Test
-    fun publishingProgressIsCalculatedFromStartTime() {
-        val startedAt = 1_609_545_600_000L
-
-        assertEquals(0, publishingProgressPercent(startedAt, startedAt))
-        assertEquals(50, publishingProgressPercent(startedAt, startedAt + 1_000L))
-        assertEquals(100, publishingProgressPercent(startedAt, startedAt + 2_000L))
-        assertEquals(100, publishingProgressPercent(startedAt, startedAt + 3_000L))
-    }
-
-    @Test
-    fun markPublishingCompleteSetsCompleteStatus() {
-        val viewModel = RegisterMovieViewModel(FakeAppRepository())
-        val now = 1_609_545_600_000L
-
-        viewModel.selectMovie(FakeMovies.first())
-        viewModel.updateTheaterName("아트나인")
-        viewModel.updateReleaseDateMillis(1_609_459_200_000L, nowMillis = now)
-        viewModel.updateRating(5)
-        viewModel.updateReview("좋았다.")
-        viewModel.goToNextStep()
-        viewModel.selectTicketTemplate(TicketTemplateOption.Poster)
-        viewModel.goToNextStep(nowMillis = now)
-        viewModel.markPublishingComplete(nowMillis = now + 2_000L)
-
-        val state = viewModel.uiState.value
-        assertEquals(PublishingStatus.Complete, state.publishingStatus)
-        assertEquals(now + 2_000L, state.publishCompletedAtMillis)
-        assertTrue(state.isPublishComplete)
+        assertEquals(RegisterMovieStep.Share, state.step)
+        assertEquals(null, state.errorMessage)
     }
 
     @Test
@@ -229,7 +177,6 @@ class RegisterMovieViewModelTest {
 
         viewModel.updateSearchQuery("괴물")
         viewModel.updateTitle("괴물")
-        viewModel.selectTicketTemplate(TicketTemplateOption.Minimal)
         viewModel.reset()
 
         assertEquals(RegisterMovieUiState(), viewModel.uiState.value)

@@ -262,6 +262,26 @@ class RemoteAppRepository @Inject constructor(
         Timber.w(it, "RemoteAppRepository.fetchTheater failed theaterId=%s", theaterId)
     }
 
+    override suspend fun saveTheater(theaterId: String): Result<Unit> = runCatching {
+        Timber.d("RemoteAppRepository.saveTheater request theaterId=%s", theaterId)
+        apiService.saveTheater(theaterId).close()
+        Unit
+    }.onSuccess {
+        Timber.d("RemoteAppRepository.saveTheater success theaterId=%s", theaterId)
+    }.onFailure {
+        Timber.w(it, "RemoteAppRepository.saveTheater failed theaterId=%s", theaterId)
+    }
+
+    override suspend fun removeSavedTheater(theaterId: String): Result<Unit> = runCatching {
+        Timber.d("RemoteAppRepository.removeSavedTheater request theaterId=%s", theaterId)
+        apiService.removeSavedTheater(theaterId).close()
+        Unit
+    }.onSuccess {
+        Timber.d("RemoteAppRepository.removeSavedTheater success theaterId=%s", theaterId)
+    }.onFailure {
+        Timber.w(it, "RemoteAppRepository.removeSavedTheater failed theaterId=%s", theaterId)
+    }
+
     override suspend fun fetchTicketCollection(): Result<TicketCollection> = runCatching {
         Timber.d("RemoteAppRepository.fetchTicketCollection request")
         error("Ticket collection API is not specified in Swagger.")

@@ -75,6 +75,14 @@ interface AppRepository {
 
     suspend fun fetchTheater(theaterId: String): Result<Theater>
 
+    suspend fun saveTheater(theaterId: String): Result<Unit> {
+        return Result.failure(UnsupportedOperationException("Theater save API is not implemented."))
+    }
+
+    suspend fun removeSavedTheater(theaterId: String): Result<Unit> {
+        return Result.failure(UnsupportedOperationException("Saved theater delete API is not implemented."))
+    }
+
     suspend fun fetchTicketCollection(): Result<TicketCollection>
 
     suspend fun updateMyTicket(request: UpdateTicketRequest): Result<MovieTicket>

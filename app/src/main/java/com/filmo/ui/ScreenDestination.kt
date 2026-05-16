@@ -14,6 +14,12 @@ sealed interface ScreenDestination : NavKey {
     data object TheaterFinder : ScreenDestination
 
     @Serializable
+    data class TheaterDetail(
+        val theaterId: String,
+        val initiallySaved: Boolean
+    ) : ScreenDestination
+
+    @Serializable
     data object Collection : ScreenDestination
 
     @Serializable

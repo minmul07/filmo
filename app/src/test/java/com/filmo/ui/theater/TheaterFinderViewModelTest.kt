@@ -7,9 +7,12 @@ import com.filmo.service.MovieTicket
 import com.filmo.service.SampleItem
 import com.filmo.service.SampleItemRequest
 import com.filmo.service.Theater
+import com.filmo.service.TheaterBookmarkStore
 import com.filmo.service.TheaterPage
 import com.filmo.service.TicketCollection
 import com.filmo.service.UpdateTicketRequest
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -20,7 +23,7 @@ class TheaterFinderViewModelTest {
     @Test
     fun loadTheatersRequestsZeroBasedFirstPage() = runBlocking {
         val repository = FakeTheaterRepository()
-        val viewModel = TheaterFinderViewModel(repository)
+        val viewModel = TheaterFinderViewModel(repository, FakeTheaterBookmarkStore())
 
         viewModel.loadTheaters()
 
@@ -42,7 +45,7 @@ class TheaterFinderViewModelTest {
                 1 to false
             )
         )
-        val viewModel = TheaterFinderViewModel(repository)
+        val viewModel = TheaterFinderViewModel(repository, FakeTheaterBookmarkStore())
 
         viewModel.loadTheaters()
         viewModel.loadNextTheaterPage()
@@ -60,7 +63,7 @@ class TheaterFinderViewModelTest {
             pages = mapOf(0 to FakeTheaters),
             hasMoreByPage = mapOf(0 to false)
         )
-        val viewModel = TheaterFinderViewModel(repository)
+        val viewModel = TheaterFinderViewModel(repository, FakeTheaterBookmarkStore())
 
         viewModel.loadTheaters()
         viewModel.loadNextTheaterPage()
@@ -70,19 +73,59 @@ class TheaterFinderViewModelTest {
     }
 
     @Test
-    fun toggleSavedUpdatesSavedTheaterIds() {
-        val viewModel = TheaterFinderViewModel(FakeTheaterRepository())
+    fun saveTheaterUpdatesSavedTheaterIdsAfterRepositorySucceeds() = runBlocking {
+        val bookmarkStore = FakeTheaterBookmarkStore()
+        val viewModel = TheaterFinderViewModel(FakeTheaterRepository(), bookmarkStore)
 
-        viewModel.toggleSaved("artnine")
+        viewModel.saveTheater("artnine")
+
         assertTrue("artnine" in viewModel.uiState.value.savedTheaterIds)
+        assertTrue("artnine" in bookmarkStore.currentSavedTheaterIds)
+    }
 
-        viewModel.toggleSaved("artnine")
+    @Test
+    fun removeSavedTheaterUpdatesSavedTheaterIdsAfterRepositorySucceeds() = runBlocking {
+        val bookmarkStore = FakeTheaterBookmarkStore()
+        val viewModel = TheaterFinderViewModel(FakeTheaterRepository(), bookmarkStore)
+
+        viewModel.saveTheater("artnine")
+        viewModel.removeSavedTheater("artnine")
+
         assertFalse("artnine" in viewModel.uiState.value.savedTheaterIds)
+        assertFalse("artnine" in bookmarkStore.currentSavedTheaterIds)
+    }
+
+    @Test
+    fun saveTheaterKeepsStateAndShowsErrorWhenRepositoryFails() = runBlocking {
+        val bookmarkStore = FakeTheaterBookmarkStore()
+        val viewModel = TheaterFinderViewModel(
+            FakeTheaterRepository(saveTheaterResult = Result.failure(IllegalStateException("fail"))),
+            bookmarkStore
+        )
+
+        viewModel.saveTheater("artnine")
+
+        val state = viewModel.uiState.value
+        assertFalse("artnine" in state.savedTheaterIds)
+        assertFalse("artnine" in bookmarkStore.currentSavedTheaterIds)
+        assertEquals("영화관을 저장하지 못했어요. 다시 시도해 주세요.", state.bookmarkErrorMessage)
+    }
+
+    @Test
+    fun loadTheatersRestoresSavedTheaterIdsFromBookmarkStore() = runBlocking {
+        val bookmarkStore = FakeTheaterBookmarkStore(initialSavedTheaterIds = setOf("artnine"))
+        val viewModel = TheaterFinderViewModel(FakeTheaterRepository(), bookmarkStore)
+
+        viewModel.loadTheaters()
+
+        assertTrue("artnine" in viewModel.uiState.value.savedTheaterIds)
     }
 
     private class FakeTheaterRepository(
         private val pages: Map<Int, List<Theater>> = mapOf(0 to FakeTheaters),
-        private val hasMoreByPage: Map<Int, Boolean> = mapOf(0 to false)
+        private val hasMoreByPage: Map<Int, Boolean> = mapOf(0 to false),
+        private val saveTheaterResult: Result<Unit> = Result.success(Unit),
+        private val removeSavedTheaterResult: Result<Unit> = Result.success(Unit)
     ) : AppRepository {
         val requestedPages = mutableListOf<Int>()
         val requestedSizes = mutableListOf<Int>()
@@ -136,6 +179,14 @@ class TheaterFinderViewModelTest {
             return Result.failure(UnsupportedOperationException("Not needed in this test"))
         }
 
+        override suspend fun saveTheater(theaterId: String): Result<Unit> {
+            return saveTheaterResult
+        }
+
+        override suspend fun removeSavedTheater(theaterId: String): Result<Unit> {
+            return removeSavedTheaterResult
+        }
+
         override suspend fun fetchTicketCollection(): Result<TicketCollection> {
             return Result.success(TicketCollection(emptyList(), emptyList()))
         }
@@ -147,6 +198,23 @@ class TheaterFinderViewModelTest {
         override suspend fun deleteMyTicket(ticketId: String): Result<Unit> = Result.success(Unit)
 
         override suspend fun removeSavedTicket(ticketId: String): Result<Unit> = Result.success(Unit)
+    }
+
+    private class FakeTheaterBookmarkStore(
+        initialSavedTheaterIds: Set<String> = emptySet()
+    ) : TheaterBookmarkStore {
+        private val savedTheaterIdsState = MutableStateFlow(initialSavedTheaterIds)
+        override val savedTheaterIds: Flow<Set<String>> = savedTheaterIdsState
+        val currentSavedTheaterIds: Set<String>
+            get() = savedTheaterIdsState.value
+
+        override suspend fun saveTheaterId(theaterId: String) {
+            savedTheaterIdsState.value = savedTheaterIdsState.value + theaterId
+        }
+
+        override suspend fun removeTheaterId(theaterId: String) {
+            savedTheaterIdsState.value = savedTheaterIdsState.value - theaterId
+        }
     }
 
     private companion object {

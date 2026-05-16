@@ -115,6 +115,14 @@ class RemoteDebugAuthTestClientTest {
         override suspend fun fetchTheater(theaCd: String): ResponseBody {
             error("Not needed in this test")
         }
+
+        override suspend fun saveTheater(theaCd: String): ResponseBody {
+            error("Not needed in this test")
+        }
+
+        override suspend fun removeSavedTheater(theaCd: String): ResponseBody {
+            error("Not needed in this test")
+        }
     }
 
     private companion object {

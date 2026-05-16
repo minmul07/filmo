@@ -26,4 +26,10 @@ object RepositoryModule {
             remoteAppRepository.get()
         }
     }
+
+    @Provides
+    @Singleton
+    fun provideTheaterBookmarkStore(localDisk: LocalDisk): TheaterBookmarkStore {
+        return localDisk
+    }
 }

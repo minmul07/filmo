@@ -6,6 +6,7 @@ import com.filmo.service.AppRepository
 import com.filmo.service.MovieCatalogItem
 import com.filmo.service.MovieDetail
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -167,7 +168,7 @@ class RegisterMovieViewModel @Inject constructor(
             )
         }
 
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             Timber.d("RegisterMovieViewModel.fetchMovieDetail request movieId=%s", movie.id)
             val result = appRepository.fetchMovieDetail(movie.id)
             result
@@ -303,17 +304,7 @@ class RegisterMovieViewModel @Inject constructor(
         }
     }
 
-    fun selectTicketTemplate(template: TicketTemplateOption) {
-        Timber.d("RegisterMovieViewModel.selectTicketTemplate template=%s", template.name)
-        _uiState.update {
-            it.copy(
-                selectedTicketTemplate = template,
-                errorMessage = null
-            )
-        }
-    }
-
-    fun goToNextStep(nowMillis: Long = System.currentTimeMillis()) {
+    fun goToNextStep() {
         Timber.d("RegisterMovieViewModel.goToNextStep currentStep=%s", _uiState.value.step)
         when (_uiState.value.step) {
             RegisterMovieStep.MovieSearch -> {
@@ -321,55 +312,27 @@ class RegisterMovieViewModel @Inject constructor(
                 _uiState.update { it.copy(errorMessage = "영화를 선택해 주세요.") }
             }
 
-            RegisterMovieStep.MovieInfo -> moveToTicketTemplateIfValid()
-            RegisterMovieStep.TicketTemplate -> beginPublishingIfValid(nowMillis)
-            RegisterMovieStep.Publishing -> Unit
+            RegisterMovieStep.MovieInfo -> moveToShareIfValid()
+            RegisterMovieStep.Share -> Unit
         }
     }
 
     fun goBack(): Boolean {
         val currentState = _uiState.value
-        if (currentState.step == RegisterMovieStep.Publishing &&
-            currentState.publishingStatus == PublishingStatus.Publishing
-        ) {
-            Timber.d("RegisterMovieViewModel.goBack ignored during publishing")
-            return true
-        }
-
         val previousStep = when (currentState.step) {
             RegisterMovieStep.MovieSearch -> return false
             RegisterMovieStep.MovieInfo -> RegisterMovieStep.MovieSearch
-            RegisterMovieStep.TicketTemplate -> RegisterMovieStep.MovieInfo
-            RegisterMovieStep.Publishing -> RegisterMovieStep.TicketTemplate
+            RegisterMovieStep.Share -> RegisterMovieStep.MovieInfo
         }
 
         _uiState.update {
             it.copy(
                 step = previousStep,
-                errorMessage = null,
-                publishStartedAtMillis = null,
-                publishCompletedAtMillis = null,
-                publishingStatus = PublishingStatus.Idle
+                errorMessage = null
             )
         }
         Timber.d("RegisterMovieViewModel.goBack moved from=%s to=%s", currentState.step, previousStep)
         return true
-    }
-
-    fun markPublishingComplete(nowMillis: Long = System.currentTimeMillis()) {
-        Timber.d("RegisterMovieViewModel.markPublishingComplete requested")
-        _uiState.update {
-            if (it.step == RegisterMovieStep.Publishing &&
-                it.publishingStatus == PublishingStatus.Publishing
-            ) {
-                it.copy(
-                    publishingStatus = PublishingStatus.Complete,
-                    publishCompletedAtMillis = nowMillis
-                )
-            } else {
-                it
-            }
-        }
     }
 
     fun reset() {
@@ -377,7 +340,7 @@ class RegisterMovieViewModel @Inject constructor(
         _uiState.value = RegisterMovieUiState()
     }
 
-    private fun moveToTicketTemplateIfValid() {
+    private fun moveToShareIfValid() {
         val state = _uiState.value
         val missingRequiredInfo = state.selectedMovie == null ||
             state.releaseDateMillis == null ||
@@ -386,7 +349,7 @@ class RegisterMovieViewModel @Inject constructor(
 
         if (missingRequiredInfo) {
             Timber.d(
-                "RegisterMovieViewModel.moveToTicketTemplateIfValid blocked selectedMovie=%s hasDate=%s hasRating=%s reviewBlank=%s",
+                "RegisterMovieViewModel.moveToShareIfValid blocked selectedMovie=%s hasDate=%s hasRating=%s reviewBlank=%s",
                 state.selectedMovie != null,
                 state.releaseDateMillis != null,
                 state.rating != null,
@@ -398,30 +361,10 @@ class RegisterMovieViewModel @Inject constructor(
             return
         }
 
-        Timber.d("RegisterMovieViewModel.moveToTicketTemplateIfValid success")
+        Timber.d("RegisterMovieViewModel.moveToShareIfValid success")
         _uiState.update {
             it.copy(
-                step = RegisterMovieStep.TicketTemplate,
-                errorMessage = null
-            )
-        }
-    }
-
-    private fun beginPublishingIfValid(nowMillis: Long) {
-        val state = _uiState.value
-        if (state.selectedTicketTemplate == null) {
-            Timber.d("RegisterMovieViewModel.beginPublishingIfValid blocked reason=no_template")
-            _uiState.update { it.copy(errorMessage = "티켓 디자인을 선택해 주세요.") }
-            return
-        }
-
-        Timber.d("RegisterMovieViewModel.beginPublishingIfValid success template=%s", state.selectedTicketTemplate.name)
-        _uiState.update {
-            it.copy(
-                step = RegisterMovieStep.Publishing,
-                publishingStatus = PublishingStatus.Publishing,
-                publishStartedAtMillis = nowMillis,
-                publishCompletedAtMillis = null,
+                step = RegisterMovieStep.Share,
                 errorMessage = null
             )
         }
@@ -447,15 +390,8 @@ data class RegisterMovieUiState(
     val theaterName: String = "",
     val rating: Int? = null,
     val review: String = "",
-    val selectedTicketTemplate: TicketTemplateOption? = null,
-    val publishingStatus: PublishingStatus = PublishingStatus.Idle,
-    val publishStartedAtMillis: Long? = null,
-    val publishCompletedAtMillis: Long? = null,
     val errorMessage: String? = null
 ) {
-    val isPublishComplete: Boolean
-        get() = publishingStatus == PublishingStatus.Complete
-
     val filteredMovies: List<MovieCatalogItem>
         get() {
             val trimmedQuery = searchQuery.trim()
@@ -471,53 +407,14 @@ data class RegisterMovieUiState(
 enum class RegisterMovieStep {
     MovieSearch,
     MovieInfo,
-    TicketTemplate,
-    Publishing
+    Share
 }
 
-enum class TicketTemplateOption(
-    val label: String,
-    val description: String
-) {
-    Classic(
-        label = "Classic",
-        description = "독립영화 티켓 기본형"
-    ),
-    Poster(
-        label = "Poster",
-        description = "포스터 중심 티켓"
-    ),
-    Minimal(
-        label = "Minimal",
-        description = "간결한 수집 카드"
-    ),
-    Archive(
-        label = "Archive",
-        description = "기록 보관형 티켓"
-    )
-}
-
-enum class PublishingStatus {
-    Idle,
-    Publishing,
-    Complete
-}
-
-internal const val TicketPublishingDurationMillis = 2_000L
 private const val InitialMovieCatalogPage = 1
 private const val MovieCatalogPageSize = 20
 private const val MIN_RATING = 1
 private const val MAX_RATING = 5
 private const val MAX_REVIEW_LENGTH = 100
-
-internal fun publishingProgressPercent(startedAtMillis: Long?, nowMillis: Long): Int {
-    if (startedAtMillis == null) return 0
-
-    val elapsedMillis = (nowMillis - startedAtMillis).coerceAtLeast(0L)
-    return ((elapsedMillis * 100) / TicketPublishingDurationMillis)
-        .coerceIn(0L, 100L)
-        .toInt()
-}
 
 private fun isFutureDate(dateMillis: Long, nowMillis: Long): Boolean {
     return dateMillis > nowMillis
