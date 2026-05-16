@@ -53,7 +53,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.filmo.service.PublicTicket
 import com.filmo.ui.movie.MoviePosterImage
-import com.filmo.ui.movie.rememberMoviePosterBitmapSessionCache
 import com.filmo.ui.movie.toMovieImageUrl
 import com.filmo.ui.theme.FilmoTheme
 import kotlinx.coroutines.launch
@@ -88,8 +87,6 @@ private fun TicketViewContent(
     onRetryClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val posterImageCache = rememberMoviePosterBitmapSessionCache()
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -149,8 +146,7 @@ private fun TicketViewContent(
                     contentType = { "public-ticket" }
                 ) { ticket ->
                     PublicTicketCard(
-                        ticket = ticket,
-                        posterImageCache = posterImageCache
+                        ticket = ticket
                     )
                 }
             }
@@ -182,7 +178,6 @@ private fun TicketViewTopBar(
 @Composable
 private fun PublicTicketCard(
     ticket: PublicTicket,
-    posterImageCache: com.filmo.ui.movie.MoviePosterBitmapSessionCache,
     modifier: Modifier = Modifier
 ) {
     val posterUrl = remember(ticket.posterImagePath) {
@@ -236,7 +231,6 @@ private fun PublicTicketCard(
                     MoviePosterImage(
                         imageUrl = posterUrl,
                         title = ticket.movieTitle,
-                        imageCache = posterImageCache,
                         modifier = Modifier.fillMaxSize(),
                         shape = RoundedCornerShape(0.dp),
                         showBorder = false

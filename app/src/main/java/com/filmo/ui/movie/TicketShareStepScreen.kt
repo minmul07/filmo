@@ -45,7 +45,6 @@ import androidx.compose.ui.unit.dp
 @Composable
 internal fun TicketShareStep(
     uiState: RegisterMovieUiState,
-    posterImageCache: MoviePosterBitmapSessionCache,
     onShareClick: () -> Unit
 ) {
     StepContent(
@@ -88,7 +87,6 @@ internal fun TicketShareStep(
         ) {
             MovieShareTicket(
                 uiState = uiState,
-                posterImageCache = posterImageCache,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -98,7 +96,6 @@ internal fun TicketShareStep(
 @Composable
 private fun MovieShareTicket(
     uiState: RegisterMovieUiState,
-    posterImageCache: MoviePosterBitmapSessionCache,
     modifier: Modifier = Modifier
 ) {
     val title = uiState.title.ifBlank { uiState.selectedMovie?.title.orEmpty() }.ifBlank { "영화 제목" }
@@ -149,7 +146,6 @@ private fun MovieShareTicket(
                     MoviePosterImage(
                         imageUrl = posterUrl,
                         title = title,
-                        imageCache = posterImageCache,
                         modifier = Modifier.fillMaxSize(),
                         shape = RoundedCornerShape(0.dp),
                         showBorder = false

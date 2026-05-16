@@ -34,7 +34,6 @@ internal fun ViewingInfoRoute(
     onNavigateToCollection: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val posterImageCache = rememberMoviePosterBitmapSessionCache()
     val coroutineScope = rememberCoroutineScope()
     val routeVisibleState = remember {
         MutableTransitionState(initialState = false).apply {
@@ -81,7 +80,6 @@ internal fun ViewingInfoRoute(
 
             RegisterMovieStep.MovieInfo -> ViewingInfoScreen(
                 uiState = uiState,
-                posterImageCache = posterImageCache,
                 onBack = handleBack,
                 onReleaseDateChange = viewModel::updateReleaseDateMillis,
                 onRatingChange = viewModel::updateRating,
@@ -91,7 +89,6 @@ internal fun ViewingInfoRoute(
 
             RegisterMovieStep.Share -> TicketShareScreen(
                 uiState = uiState,
-                posterImageCache = posterImageCache,
                 onBack = handleBack,
                 onShareClick = {
                     coroutineScope.launch {
@@ -108,7 +105,6 @@ internal fun ViewingInfoRoute(
 @Composable
 internal fun ViewingInfoScreen(
     uiState: RegisterMovieUiState,
-    posterImageCache: MoviePosterBitmapSessionCache,
     onBack: () -> Unit,
     onReleaseDateChange: (Long?) -> Unit,
     onRatingChange: (Int) -> Unit,
@@ -140,7 +136,6 @@ internal fun ViewingInfoScreen(
             MovieInfoStep(
                 uiState = uiState,
                 errorMessage = uiState.errorMessage,
-                posterImageCache = posterImageCache,
                 onReleaseDateClick = {
                     val selectedMillis = uiState.releaseDateMillis ?: System.currentTimeMillis()
                     wheelDateSelection = selectedMillis.toWheelDateSelection(zoneId)

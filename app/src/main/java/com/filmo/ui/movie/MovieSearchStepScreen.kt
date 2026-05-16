@@ -55,7 +55,6 @@ internal fun MovieSearchStep(
     canLoadMore: Boolean,
     hasLoadedMovieCatalog: Boolean,
     errorMessage: String?,
-    posterImageCache: MoviePosterBitmapSessionCache,
     modifier: Modifier = Modifier,
     onQueryChange: (String) -> Unit,
     onMovieClick: (MovieCatalogItem) -> Unit,
@@ -139,7 +138,6 @@ internal fun MovieSearchStep(
                     ) { movie ->
                         MovieResultCard(
                             movie = movie,
-                            posterImageCache = posterImageCache,
                             onClick = { onMovieClick(movie) }
                         )
                     }
@@ -232,7 +230,6 @@ private fun MovieSearchField(
 @Composable
 private fun MovieResultCard(
     movie: MovieCatalogItem,
-    posterImageCache: MoviePosterBitmapSessionCache,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -245,7 +242,6 @@ private fun MovieResultCard(
     ) {
         MoviePoster(
             movie = movie,
-            imageCache = posterImageCache,
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(MoviePosterAspectRatio),

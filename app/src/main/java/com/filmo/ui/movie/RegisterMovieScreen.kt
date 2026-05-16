@@ -91,8 +91,6 @@ private fun RegisterMovieContent(
     onMovieClick: (MovieCatalogItem) -> Unit = {},
     onBack: () -> Unit = {}
 ) {
-    val posterImageCache = rememberMoviePosterBitmapSessionCache()
-
     LaunchedEffect(Unit) {
         onFullScreenStepVisibilityChange(false)
     }
@@ -126,7 +124,6 @@ private fun RegisterMovieContent(
                     canLoadMore = uiState.canLoadMoreMovies,
                     hasLoadedMovieCatalog = uiState.hasLoadedMovieCatalog,
                     errorMessage = uiState.errorMessage,
-                    posterImageCache = posterImageCache,
                     modifier = Modifier.weight(1f),
                     onQueryChange = onSearchQueryChange,
                     onMovieClick = onMovieClick,
@@ -141,7 +138,6 @@ private fun RegisterMovieContent(
 @Composable
 internal fun TicketShareScreen(
     uiState: RegisterMovieUiState,
-    posterImageCache: MoviePosterBitmapSessionCache,
     onBack: () -> Unit,
     onShareClick: () -> Unit
 ) {
@@ -158,7 +154,6 @@ internal fun TicketShareScreen(
 
         TicketShareStep(
             uiState = uiState,
-            posterImageCache = posterImageCache,
             onShareClick = onShareClick
         )
     }

@@ -52,7 +52,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.filmo.service.MovieTicket
-import com.filmo.ui.movie.MoviePosterBitmapSessionCache
 import com.filmo.ui.movie.MoviePosterImage
 import com.filmo.ui.movie.toMovieImageUrl
 import java.time.LocalDate
@@ -168,7 +167,6 @@ internal fun TicketCard(
 @Composable
 internal fun CollectionDetailTicketCard(
     ticket: MovieTicket,
-    posterImageCache: MoviePosterBitmapSessionCache,
     modifier: Modifier = Modifier
 ) {
     val posterUrl = remember(ticket.posterImagePath) {
@@ -209,7 +207,6 @@ internal fun CollectionDetailTicketCard(
                     MoviePosterImage(
                         imageUrl = posterUrl,
                         title = ticket.movieTitle,
-                        imageCache = posterImageCache,
                         modifier = Modifier.fillMaxSize(),
                         shape = RoundedCornerShape(0.dp),
                         showBorder = false
@@ -258,7 +255,6 @@ internal fun CollectionDetailTicketCard(
 @Composable
 internal fun CollectionTicketCard(
     ticket: MovieTicket,
-    posterImageCache: MoviePosterBitmapSessionCache,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -293,7 +289,6 @@ internal fun CollectionTicketCard(
             MoviePosterImage(
                 imageUrl = posterUrl,
                 title = ticket.movieTitle,
-                imageCache = posterImageCache,
                 modifier = Modifier.fillMaxSize(),
                 shape = RoundedCornerShape(0.dp),
                 showBorder = false

@@ -40,7 +40,6 @@ import androidx.compose.ui.unit.dp
 internal fun MovieInfoStep(
     uiState: RegisterMovieUiState,
     errorMessage: String?,
-    posterImageCache: MoviePosterBitmapSessionCache,
     onReleaseDateClick: () -> Unit,
     onRatingChange: (Int) -> Unit,
     onReviewChange: (String) -> Unit,
@@ -76,8 +75,7 @@ internal fun MovieInfoStep(
         }
     ) {
         MovieInfoSummary(
-            uiState = uiState,
-            posterImageCache = posterImageCache
+            uiState = uiState
         )
         FormSectionTitle(text = "관람일")
         Row(
@@ -119,7 +117,6 @@ internal fun MovieInfoStep(
 @Composable
 private fun MovieInfoSummary(
     uiState: RegisterMovieUiState,
-    posterImageCache: MoviePosterBitmapSessionCache,
     modifier: Modifier = Modifier
 ) {
     val title = uiState.title.ifBlank { uiState.selectedMovie?.title.orEmpty() }
@@ -154,7 +151,6 @@ private fun MovieInfoSummary(
             MoviePosterImage(
                 imageUrl = posterUrl,
                 title = title.ifBlank { "선택한 영화" },
-                imageCache = posterImageCache,
                 modifier = Modifier
                     .width(142.dp)
                     .height(200.dp),

@@ -36,7 +36,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.filmo.service.MovieTicket
-import com.filmo.ui.movie.rememberMoviePosterBitmapSessionCache
 import com.filmo.ui.theme.FilmoTheme
 import kotlinx.coroutines.launch
 
@@ -162,7 +161,6 @@ private fun CollectionContent(
     onDismissDelete: () -> Unit,
     onConfirmDelete: () -> Unit
 ) {
-    val posterImageCache = rememberMoviePosterBitmapSessionCache()
     val tickets = uiState.myTickets
 
     Column(
@@ -227,7 +225,6 @@ private fun CollectionContent(
                 ) { ticket ->
                     CollectionTicketCard(
                         ticket = ticket,
-                        posterImageCache = posterImageCache,
                         onClick = { onTicketClick(ticket.id) }
                     )
                 }
@@ -254,8 +251,6 @@ private fun CollectionDetailContent(
     onDismissDelete: () -> Unit,
     onConfirmDelete: () -> Unit
 ) {
-    val posterImageCache = rememberMoviePosterBitmapSessionCache()
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -296,10 +291,7 @@ private fun CollectionDetailContent(
                 }
 
                 ticket != null -> item {
-                    CollectionDetailTicketCard(
-                        ticket = ticket,
-                        posterImageCache = posterImageCache
-                    )
+                    CollectionDetailTicketCard(ticket = ticket)
                 }
 
                 else -> item {
