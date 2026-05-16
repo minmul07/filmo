@@ -30,6 +30,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "AndroidTemplate"
+rootProject.name = "Filmo"
 include(":app")
  

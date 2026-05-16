@@ -10,11 +10,11 @@ plugins {
 }
 
 android {
-    namespace = "minmul.androidtemplate"
+    namespace = "com.filmo"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "minmul.androidtemplate"
+        applicationId = "com.filmo"
         minSdk = 30
         targetSdk = 36
         versionCode = 1
