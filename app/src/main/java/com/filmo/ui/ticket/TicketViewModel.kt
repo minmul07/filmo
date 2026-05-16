@@ -3,6 +3,7 @@ package com.filmo.ui.ticket
 import androidx.lifecycle.ViewModel
 import com.filmo.service.AppRepository
 import com.filmo.service.PublicTicket
+import com.filmo.ui.common.OwnPostLikeNotAllowedMessage
 import com.filmo.ui.common.toTicketLikeErrorMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,7 +30,8 @@ class TicketViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 isLoading = true,
-                errorMessage = null
+                errorMessage = null,
+                toastMessage = null
             )
         }
 
@@ -48,13 +50,15 @@ class TicketViewModel @Inject constructor(
                     state.copy(
                         tickets = tickets,
                         isLoading = false,
-                        errorMessage = null
+                        errorMessage = null,
+                        toastMessage = null
                     )
                 },
                 onFailure = {
                     state.copy(
                         isLoading = false,
-                        errorMessage = "공개 티켓을 불러오지 못했어요. 다시 시도해 주세요."
+                        errorMessage = "공개 티켓을 불러오지 못했어요. 다시 시도해 주세요.",
+                        toastMessage = null
                     )
                 }
             )
@@ -75,7 +79,8 @@ class TicketViewModel @Inject constructor(
                 tickets = state.tickets.map { current ->
                     if (current.id == ticketId) current.withLikeState(nextLiked) else current
                 },
-                errorMessage = null
+                errorMessage = null,
+                toastMessage = null
             )
         }
 
@@ -89,22 +94,29 @@ class TicketViewModel @Inject constructor(
             }
 
         result.exceptionOrNull()?.let { error ->
+            val message = error.toTicketLikeErrorMessage()
             _uiState.update { state ->
                 state.copy(
                     tickets = state.tickets.map { current ->
                         if (current.id == ticketId) ticket else current
                     },
-                    errorMessage = error.toTicketLikeErrorMessage()
+                    errorMessage = message.takeUnless { it == OwnPostLikeNotAllowedMessage },
+                    toastMessage = message.takeIf { it == OwnPostLikeNotAllowedMessage }
                 )
             }
         }
+    }
+
+    fun dismissToastMessage() {
+        _uiState.update { it.copy(toastMessage = null) }
     }
 }
 
 data class TicketViewUiState(
     val tickets: List<PublicTicket> = emptyList(),
     val isLoading: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val toastMessage: String? = null
 )
 
 private fun PublicTicket.withLikeState(liked: Boolean): PublicTicket {

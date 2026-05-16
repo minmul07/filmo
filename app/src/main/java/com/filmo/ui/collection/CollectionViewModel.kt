@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import com.filmo.service.AppRepository
 import com.filmo.service.MovieTicket
 import com.filmo.service.UpdateTicketRequest
+import com.filmo.ui.common.OwnPostLikeNotAllowedMessage
 import com.filmo.ui.common.toTicketLikeErrorMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,7 +31,8 @@ class CollectionViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 isLoading = true,
-                errorMessage = null
+                errorMessage = null,
+                toastMessage = null
             )
         }
 
@@ -53,13 +55,15 @@ class CollectionViewModel @Inject constructor(
                         myTickets = collection.myTickets,
                         savedTickets = collection.savedTickets,
                         isLoading = false,
-                        errorMessage = null
+                        errorMessage = null,
+                        toastMessage = null
                     )
                 },
                 onFailure = {
                     state.copy(
                         isLoading = false,
-                        errorMessage = "티켓 컬렉션을 불러오지 못했어요. 다시 시도해 주세요."
+                        errorMessage = "티켓 컬렉션을 불러오지 못했어요. 다시 시도해 주세요.",
+                        toastMessage = null
                     )
                 }
             )
@@ -72,7 +76,8 @@ class CollectionViewModel @Inject constructor(
             it.copy(
                 selectedTab = tab,
                 pendingDeleteTicket = null,
-                errorMessage = null
+                errorMessage = null,
+                toastMessage = null
             )
         }
     }
@@ -82,7 +87,8 @@ class CollectionViewModel @Inject constructor(
         _uiState.update { state ->
             state.copy(
                 pendingDeleteTicket = state.findTicket(ticketId),
-                errorMessage = null
+                errorMessage = null,
+                toastMessage = null
             )
         }
     }
@@ -119,13 +125,15 @@ class CollectionViewModel @Inject constructor(
                         myTickets = state.myTickets.filterNot { it.id == ticket.id },
                         savedTickets = state.savedTickets.filterNot { it.id == ticket.id },
                         pendingDeleteTicket = null,
-                        errorMessage = null
+                        errorMessage = null,
+                        toastMessage = null
                     )
                 },
                 onFailure = {
                     state.copy(
                         pendingDeleteTicket = null,
-                        errorMessage = "티켓을 삭제하지 못했어요. 다시 시도해 주세요."
+                        errorMessage = "티켓을 삭제하지 못했어요. 다시 시도해 주세요.",
+                        toastMessage = null
                     )
                 }
             )
@@ -174,11 +182,15 @@ class CollectionViewModel @Inject constructor(
                     state.copy(
                         myTickets = state.myTickets.replaceTicket(ticket.id, detail),
                         savedTickets = state.savedTickets.replaceTicket(ticket.id, detail),
-                        errorMessage = null
+                        errorMessage = null,
+                        toastMessage = null
                     )
                 },
                 onFailure = {
-                    state.copy(errorMessage = "티켓 상세 정보를 불러오지 못했어요. 다시 시도해 주세요.")
+                    state.copy(
+                        errorMessage = "티켓 상세 정보를 불러오지 못했어요. 다시 시도해 주세요.",
+                        toastMessage = null
+                    )
                 }
             )
         }
@@ -197,7 +209,8 @@ class CollectionViewModel @Inject constructor(
             state.copy(
                 myTickets = state.myTickets.updateLike(ticketId, nextLiked),
                 savedTickets = state.savedTickets.updateLike(ticketId, nextLiked),
-                errorMessage = null
+                errorMessage = null,
+                toastMessage = null
             )
         }
 
@@ -211,14 +224,20 @@ class CollectionViewModel @Inject constructor(
             }
 
         result.exceptionOrNull()?.let { error ->
+            val message = error.toTicketLikeErrorMessage()
             _uiState.update { state ->
                 state.copy(
                     myTickets = state.myTickets.restoreTicket(ticket),
                     savedTickets = state.savedTickets.restoreTicket(ticket),
-                    errorMessage = error.toTicketLikeErrorMessage()
+                    errorMessage = message.takeUnless { it == OwnPostLikeNotAllowedMessage },
+                    toastMessage = message.takeIf { it == OwnPostLikeNotAllowedMessage }
                 )
             }
         }
+    }
+
+    fun dismissToastMessage() {
+        _uiState.update { it.copy(toastMessage = null) }
     }
 
     fun startEditingTicket(ticketId: String) {
@@ -230,14 +249,15 @@ class CollectionViewModel @Inject constructor(
             }
             state.copy(
                 editingTicket = ticket?.toEditingTicket(),
-                errorMessage = if (ticket == null) "수정할 티켓을 찾지 못했어요." else null
+                errorMessage = if (ticket == null) "수정할 티켓을 찾지 못했어요." else null,
+                toastMessage = null
             )
         }
     }
 
     fun cancelEditingTicket() {
         Timber.d("CollectionViewModel.cancelEditingTicket")
-        _uiState.update { it.copy(editingTicket = null, errorMessage = null) }
+        _uiState.update { it.copy(editingTicket = null, errorMessage = null, toastMessage = null) }
     }
 
     fun updateEditingTheaterName(theaterName: String) {
@@ -249,7 +269,8 @@ class CollectionViewModel @Inject constructor(
         _uiState.update { state ->
             state.copy(
                 editingTicket = state.editingTicket?.copy(theaterName = theaterName),
-                errorMessage = null
+                errorMessage = null,
+                toastMessage = null
             )
         }
     }
@@ -263,7 +284,8 @@ class CollectionViewModel @Inject constructor(
         _uiState.update { state ->
             state.copy(
                 editingTicket = state.editingTicket?.copy(watchedDate = watchedDate),
-                errorMessage = null
+                errorMessage = null,
+                toastMessage = null
             )
         }
     }
@@ -273,7 +295,8 @@ class CollectionViewModel @Inject constructor(
         _uiState.update { state ->
             state.copy(
                 editingTicket = state.editingTicket?.copy(rating = rating.coerceIn(MIN_RATING, MAX_RATING)),
-                errorMessage = null
+                errorMessage = null,
+                toastMessage = null
             )
         }
     }
@@ -283,7 +306,8 @@ class CollectionViewModel @Inject constructor(
         _uiState.update { state ->
             state.copy(
                 editingTicket = state.editingTicket?.copy(review = review),
-                errorMessage = null
+                errorMessage = null,
+                toastMessage = null
             )
         }
     }
@@ -300,7 +324,10 @@ class CollectionViewModel @Inject constructor(
                 editingTicket.review.isBlank()
             )
             _uiState.update {
-                it.copy(errorMessage = "관람일, 관람 후기를 입력해 주세요.")
+                it.copy(
+                    errorMessage = "관람일, 관람 후기를 입력해 주세요.",
+                    toastMessage = null
+                )
             }
             return
         }
@@ -330,11 +357,15 @@ class CollectionViewModel @Inject constructor(
                             if (it.id == updatedTicket.id) updatedTicket else it
                         },
                         editingTicket = null,
-                        errorMessage = null
+                        errorMessage = null,
+                        toastMessage = null
                     )
                 },
                 onFailure = {
-                    state.copy(errorMessage = "티켓을 저장하지 못했어요. 다시 시도해 주세요.")
+                    state.copy(
+                        errorMessage = "티켓을 저장하지 못했어요. 다시 시도해 주세요.",
+                        toastMessage = null
+                    )
                 }
             )
         }
@@ -354,7 +385,8 @@ data class CollectionUiState(
     val isLoading: Boolean = false,
     val pendingDeleteTicket: MovieTicket? = null,
     val editingTicket: EditingTicket? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val toastMessage: String? = null
 ) {
     val visibleTickets: List<MovieTicket>
         get() = when (selectedTab) {

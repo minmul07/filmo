@@ -121,7 +121,7 @@ class CollectionViewModelTest {
     }
 
     @Test
-    fun toggleTicketLikeShowsOwnPostMessageWhenRepositoryReturnsBadRequest() = runBlocking {
+    fun toggleTicketLikeUsesToastMessageForOwnPostWhenRepositoryReturnsBadRequest() = runBlocking {
         val repository = FakeCollectionRepository(
             setTicketLikedResult = Result.failure(httpException(400))
         )
@@ -133,7 +133,8 @@ class CollectionViewModelTest {
         val ticket = viewModel.uiState.value.myTickets.single()
         assertFalse(ticket.liked)
         assertEquals(0, ticket.likeCount)
-        assertEquals("나의 게시물에는 좋아요를 누를 수 없습니다.", viewModel.uiState.value.errorMessage)
+        assertNull(viewModel.uiState.value.errorMessage)
+        assertEquals("나의 게시물에는 좋아요를 누를 수 없습니다.", viewModel.uiState.value.toastMessage)
     }
 
     @Test
