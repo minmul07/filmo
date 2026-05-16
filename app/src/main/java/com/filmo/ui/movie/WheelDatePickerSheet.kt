@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -185,6 +186,7 @@ private fun WheelPickerColumn(
     val wheelHeight = itemHeight * VisibleWheelItemCount
     val edgePadding = itemHeight * ((VisibleWheelItemCount - 1) / 2)
     val itemHeightPx = with(LocalDensity.current) { itemHeight.toPx() }
+    val currentOnValueSelected = rememberUpdatedState(onValueSelected)
 
     LaunchedEffect(values, selectedIndex) {
         if (!listState.isScrollInProgress && listState.firstVisibleItemIndex != selectedIndex) {
@@ -199,7 +201,7 @@ private fun WheelPickerColumn(
         }
             .distinctUntilChanged()
             .collect { index ->
-                onValueSelected(values[index])
+                currentOnValueSelected.value(values[index])
             }
     }
 
