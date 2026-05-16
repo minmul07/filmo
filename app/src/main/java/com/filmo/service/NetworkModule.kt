@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
+import timber.log.Timber
 import javax.inject.Singleton
 
 @Module

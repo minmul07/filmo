@@ -85,7 +85,42 @@ class CollectionViewModelTest {
         assertNull(viewModel.uiState.value.editingTicket)
     }
 
-    private class FakeCollectionRepository : AppRepository {
+    @Test
+    fun toggleTicketLikeUpdatesCollectionTicketAndCallsRepository() = runBlocking {
+        val repository = FakeCollectionRepository()
+        val viewModel = CollectionViewModel(repository)
+
+        viewModel.loadTickets()
+        viewModel.toggleTicketLike("my-1")
+
+        val ticket = viewModel.uiState.value.myTickets.single()
+        assertTrue(ticket.liked)
+        assertEquals(1, ticket.likeCount)
+        assertEquals(listOf("my-1" to true), repository.likeRequests)
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun toggleTicketLikeRollsBackCollectionTicketWhenRepositoryFails() = runBlocking {
+        val repository = FakeCollectionRepository(
+            setTicketLikedResult = Result.failure(IllegalStateException("boom"))
+        )
+        val viewModel = CollectionViewModel(repository)
+
+        viewModel.loadTickets()
+        viewModel.toggleTicketLike("my-1")
+
+        val ticket = viewModel.uiState.value.myTickets.single()
+        assertFalse(ticket.liked)
+        assertEquals(0, ticket.likeCount)
+        assertEquals("좋아요를 변경하지 못했어요. 다시 시도해 주세요.", viewModel.uiState.value.errorMessage)
+    }
+
+    private class FakeCollectionRepository(
+        private val setTicketLikedResult: Result<Unit> = Result.success(Unit)
+    ) : AppRepository {
+        val likeRequests = mutableListOf<Pair<String, Boolean>>()
+
         private val myTickets = mutableListOf(
             MovieTicket(
                 id = "my-1",
@@ -95,7 +130,9 @@ class CollectionViewModelTest {
                 rating = 4,
                 review = "유쾌하고 따뜻한 영화였어요",
                 ownedByMe = true,
-                savedByMe = false
+                savedByMe = false,
+                liked = false,
+                likeCount = 0
             )
         )
         private val savedTickets = mutableListOf(
@@ -107,7 +144,9 @@ class CollectionViewModelTest {
                 rating = 5,
                 review = "영상미가 압도적이었습니다",
                 ownedByMe = false,
-                savedByMe = true
+                savedByMe = true,
+                liked = false,
+                likeCount = 0
             )
         )
 
@@ -143,6 +182,11 @@ class CollectionViewModelTest {
             )
             myTickets[index] = updated
             return Result.success(updated)
+        }
+
+        override suspend fun setTicketLiked(ticketId: String, liked: Boolean): Result<Unit> {
+            likeRequests += ticketId to liked
+            return setTicketLikedResult
         }
 
         override suspend fun deleteMyTicket(ticketId: String): Result<Unit> {

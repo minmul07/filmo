@@ -223,7 +223,7 @@ internal fun CollectionDetailTopBar(
                 modifier = Modifier.align(Alignment.CenterEnd)
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Close,
+                    imageVector = Icons.Filled.Delete,
                     contentDescription = "티켓 삭제",
                     tint = MaterialTheme.colorScheme.onSurface
                 )

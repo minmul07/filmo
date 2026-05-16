@@ -266,6 +266,7 @@ class RegisterMovieViewModelTest {
             ),
             repository.createdTicketRequests.single()
         )
+        assertEquals("created-ticket-1" to true, repository.sharedTicketRequests.single())
         assertEquals(false, viewModel.uiState.value.isTicketCreateLoading)
         assertEquals(null, viewModel.uiState.value.errorMessage)
     }
@@ -302,6 +303,28 @@ class RegisterMovieViewModelTest {
     }
 
     @Test
+    fun createTicketTreatsMissingCreatedTicketIdAsSuccessWithoutShareCall() = runBlocking {
+        val repository = FakeAppRepository(createdTicketId = null)
+        val viewModel = RegisterMovieViewModel(repository)
+
+        viewModel.selectMovie(FakeMovies.first().copy(id = "1001"))
+        viewModel.updateReleaseDateMillis(
+            releaseDateMillis = 1_778_889_600_000L,
+            nowMillis = 1_778_976_000_000L
+        )
+        viewModel.updateRating(5)
+        viewModel.updateReview("좋아요")
+        viewModel.goToNextStep()
+
+        val result = viewModel.createTicket()
+
+        assertEquals(true, result)
+        assertEquals(false, viewModel.uiState.value.isTicketCreateLoading)
+        assertEquals(null, viewModel.uiState.value.errorMessage)
+        assertEquals(emptyList<Pair<String, Boolean>>(), repository.sharedTicketRequests)
+    }
+
+    @Test
     fun resetReturnsToInitialSearchStep() {
         val viewModel = RegisterMovieViewModel(FakeAppRepository())
 
@@ -315,11 +338,13 @@ class RegisterMovieViewModelTest {
     private class FakeAppRepository(
         private val moviePages: Map<Int, List<MovieCatalogItem>> = mapOf(0 to FakeMovies),
         private val hasMoreByPage: Map<Int, Boolean> = mapOf(0 to false),
-        private val moviePageResults: MutableList<Result<MovieCatalogPage>> = mutableListOf()
+        private val moviePageResults: MutableList<Result<MovieCatalogPage>> = mutableListOf(),
+        private val createdTicketId: String? = "created-ticket-1"
     ) : AppRepository {
         val requestedMoviePages = mutableListOf<Int>()
         val requestedMovieSizes = mutableListOf<Int>()
         val createdTicketRequests = mutableListOf<CreateTicketRequest>()
+        val sharedTicketRequests = mutableListOf<Pair<String, Boolean>>()
 
         override suspend fun ping(): Result<String> = Result.success("pong")
 
@@ -363,8 +388,13 @@ class RegisterMovieViewModelTest {
             return Result.failure(UnsupportedOperationException("Not needed in this test"))
         }
 
-        override suspend fun createTicket(request: CreateTicketRequest): Result<Unit> {
+        override suspend fun createTicket(request: CreateTicketRequest): Result<String?> {
             createdTicketRequests += request
+            return Result.success(createdTicketId)
+        }
+
+        override suspend fun updateTicketShare(ticketId: String, isPublic: Boolean): Result<Unit> {
+            sharedTicketRequests += ticketId to isPublic
             return Result.success(Unit)
         }
 
@@ -412,7 +442,7 @@ class RegisterMovieViewModelTest {
             return Result.failure(UnsupportedOperationException("Not needed in this test"))
         }
 
-        override suspend fun createTicket(request: CreateTicketRequest): Result<Unit> {
+        override suspend fun createTicket(request: CreateTicketRequest): Result<String?> {
             return Result.failure(UnsupportedOperationException("Not needed in this test"))
         }
 

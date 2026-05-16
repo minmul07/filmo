@@ -46,8 +46,16 @@ interface AppRepository {
         return Result.failure(UnsupportedOperationException("Public ticket API is not implemented."))
     }
 
-    suspend fun createTicket(request: CreateTicketRequest): Result<Unit> {
+    suspend fun createTicket(request: CreateTicketRequest): Result<String?> {
         return Result.failure(UnsupportedOperationException("Ticket create API is not implemented."))
+    }
+
+    suspend fun updateTicketShare(ticketId: String, isPublic: Boolean): Result<Unit> {
+        return Result.failure(UnsupportedOperationException("Ticket share API is not implemented."))
+    }
+
+    suspend fun setTicketLiked(ticketId: String, liked: Boolean): Result<Unit> {
+        return Result.failure(UnsupportedOperationException("Ticket like API is not implemented."))
     }
 
     suspend fun updateMyTicket(request: UpdateTicketRequest): Result<MovieTicket>
@@ -123,7 +131,9 @@ data class MovieTicket(
     val genre: String = "",
     val director: String = "",
     val releaseYear: Int = 0,
-    val duration: String = ""
+    val duration: String = "",
+    val liked: Boolean = false,
+    val likeCount: Int = 0
 )
 
 data class TicketCollection(
@@ -145,7 +155,9 @@ data class PublicTicket(
     val watchedTime: String,
     val review: String,
     val rating: Int = 0,
-    val ownerNickname: String = ""
+    val ownerNickname: String = "",
+    val liked: Boolean = false,
+    val likeCount: Int = 0
 )
 
 data class CreateTicketRequest(

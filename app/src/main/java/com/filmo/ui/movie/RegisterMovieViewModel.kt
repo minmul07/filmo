@@ -368,13 +368,31 @@ class RegisterMovieViewModel @Inject constructor(
         }
 
         val result = appRepository.createTicket(request)
-        result
-            .onSuccess {
-                Timber.d("RegisterMovieViewModel.createTicket success movieId=%s", request.movieId)
+            .onSuccess { ticketId ->
+                Timber.d("RegisterMovieViewModel.createTicket success movieId=%s ticketId=%s", request.movieId, ticketId)
             }
             .onFailure {
                 Timber.w(it, "RegisterMovieViewModel.createTicket failed movieId=%s", request.movieId)
             }
+            .fold(
+                onSuccess = { ticketId ->
+                    if (ticketId == null) {
+                        Timber.w("RegisterMovieViewModel.updateTicketShare skipped reason=missing_ticket_id")
+                        Result.success(Unit)
+                    } else {
+                        appRepository.updateTicketShare(ticketId = ticketId, isPublic = true)
+                            .onSuccess {
+                                Timber.d("RegisterMovieViewModel.updateTicketShare success ticketId=%s", ticketId)
+                            }
+                            .onFailure {
+                                Timber.w(it, "RegisterMovieViewModel.updateTicketShare failed ticketId=%s", ticketId)
+                            }
+                    }
+                },
+                onFailure = { throwable ->
+                    Result.failure(throwable)
+                }
+            )
         _uiState.update { current ->
             result.fold(
                 onSuccess = {

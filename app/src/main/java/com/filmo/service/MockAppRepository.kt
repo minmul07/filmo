@@ -97,7 +97,9 @@ class MockAppRepository @Inject constructor() : AppRepository {
             review = "유쾌하고 따뜻한 영화였어요",
             ownedByMe = true,
             savedByMe = false,
-            posterImagePath = ""
+            posterImagePath = "",
+            liked = false,
+            likeCount = 2
         ),
         MovieTicket(
             id = "my-ticket-2",
@@ -112,7 +114,9 @@ class MockAppRepository @Inject constructor() : AppRepository {
             genre = "드라마",
             director = "임대형",
             releaseYear = 2019,
-            duration = "105분"
+            duration = "105분",
+            liked = true,
+            likeCount = 8
         )
     )
     private val savedTickets = mutableListOf(
@@ -129,7 +133,9 @@ class MockAppRepository @Inject constructor() : AppRepository {
             genre = "로맨스/드라마",
             director = "박찬욱",
             releaseYear = 2022,
-            duration = "138분"
+            duration = "138분",
+            liked = false,
+            likeCount = 5
         ),
         MovieTicket(
             id = "saved-ticket-2",
@@ -144,7 +150,9 @@ class MockAppRepository @Inject constructor() : AppRepository {
             genre = "드라마",
             director = "김보라",
             releaseYear = 2018,
-            duration = "138분"
+            duration = "138분",
+            liked = true,
+            likeCount = 13
         )
     )
 
@@ -230,18 +238,21 @@ class MockAppRepository @Inject constructor() : AppRepository {
                     "모크사용자"
                 } else {
                     "독립영화user1234"
-                }
+                },
+                liked = ticket.liked,
+                likeCount = ticket.likeCount
             )
         }
     }
 
-    override suspend fun createTicket(request: CreateTicketRequest): Result<Unit> = withMockDelay(
+    override suspend fun createTicket(request: CreateTicketRequest): Result<String?> = withMockDelay(
         "createTicket(movieId=${request.movieId}, watchedDateLength=${request.watchedDate.length}, watchedTimeLength=${request.watchedTime.length}, rating=${request.rating}, reviewLength=${request.review.length})"
     ) {
         val movieDetail = movieDetails.firstOrNull { it.id == request.movieId }
         val movieTitle = movieDetail?.title ?: "영화 #${request.movieId}"
+        val ticketId = "my-ticket-${myTickets.size + 1}"
         myTickets += MovieTicket(
-            id = "my-ticket-${myTickets.size + 1}",
+            id = ticketId,
             movieTitle = movieTitle,
             theaterName = "",
             watchedDate = request.watchedDate,
@@ -253,8 +264,32 @@ class MockAppRepository @Inject constructor() : AppRepository {
             genre = movieDetail?.genre.orEmpty(),
             director = movieDetail?.director.orEmpty(),
             releaseYear = movieDetail?.releaseYear ?: 0,
-            duration = movieDetail?.duration.orEmpty()
+            duration = movieDetail?.duration.orEmpty(),
+            liked = false,
+            likeCount = 0
         )
+        ticketId
+    }
+
+    override suspend fun updateTicketShare(ticketId: String, isPublic: Boolean): Result<Unit> = withMockDelay(
+        "updateTicketShare(ticketId=$ticketId, isPublic=$isPublic)"
+    ) {
+        require(myTickets.any { it.id == ticketId }) { "Ticket not found" }
+        Unit
+    }
+
+    override suspend fun setTicketLiked(ticketId: String, liked: Boolean): Result<Unit> = withMockDelay(
+        "setTicketLiked(ticketId=$ticketId, liked=$liked)"
+    ) {
+        val myIndex = myTickets.indexOfFirst { it.id == ticketId }
+        if (myIndex >= 0) {
+            myTickets[myIndex] = myTickets[myIndex].withLikeState(liked)
+            return@withMockDelay Unit
+        }
+
+        val savedIndex = savedTickets.indexOfFirst { it.id == ticketId }
+        require(savedIndex >= 0) { "Ticket not found" }
+        savedTickets[savedIndex] = savedTickets[savedIndex].withLikeState(liked)
         Unit
     }
 
@@ -304,6 +339,18 @@ class MockAppRepository @Inject constructor() : AppRepository {
             genre = genre,
             englishTitle = englishTitle,
             imagePath = imagePath
+        )
+    }
+
+    private fun MovieTicket.withLikeState(liked: Boolean): MovieTicket {
+        val delta = when {
+            this.liked == liked -> 0
+            liked -> 1
+            else -> -1
+        }
+        return copy(
+            liked = liked,
+            likeCount = (likeCount + delta).coerceAtLeast(0)
         )
     }
 

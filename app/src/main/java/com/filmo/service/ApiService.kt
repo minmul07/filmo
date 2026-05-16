@@ -69,6 +69,22 @@ interface ApiService {
         @Body body: RequestBody
     ): ResponseBody
 
+    @PATCH("api/tickets/{ticketId}/share")
+    suspend fun updateTicketShare(
+        @Path("ticketId") ticketId: Long,
+        @Query("showYn") showYn: Boolean
+    ): ResponseBody
+
+    @POST("api/likes/{ticketId}")
+    suspend fun addLike(
+        @Path("ticketId") ticketId: Long
+    ): ResponseBody
+
+    @DELETE("api/likes/{ticketId}")
+    suspend fun removeLike(
+        @Path("ticketId") ticketId: Long
+    ): ResponseBody
+
     @PATCH("api/tickets/{ticketId}")
     suspend fun updateTicket(
         @Path("ticketId") ticketId: Long,

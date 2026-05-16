@@ -59,6 +59,45 @@ class TicketViewModel @Inject constructor(
             )
         }
     }
+
+    suspend fun toggleTicketLike(ticketId: String) {
+        val ticket = _uiState.value.tickets.firstOrNull { it.id == ticketId }
+        if (ticket == null) {
+            Timber.d("TicketViewModel.toggleTicketLike ticket not found ticketId=%s", ticketId)
+            return
+        }
+
+        val nextLiked = !ticket.liked
+        Timber.d("TicketViewModel.toggleTicketLike request ticketId=%s liked=%s", ticketId, nextLiked)
+        _uiState.update { state ->
+            state.copy(
+                tickets = state.tickets.map { current ->
+                    if (current.id == ticketId) current.withLikeState(nextLiked) else current
+                },
+                errorMessage = null
+            )
+        }
+
+        val result = appRepository.setTicketLiked(ticketId = ticketId, liked = nextLiked)
+        result
+            .onSuccess {
+                Timber.d("TicketViewModel.toggleTicketLike success ticketId=%s liked=%s", ticketId, nextLiked)
+            }
+            .onFailure {
+                Timber.w(it, "TicketViewModel.toggleTicketLike failed ticketId=%s liked=%s", ticketId, nextLiked)
+            }
+
+        if (result.isFailure) {
+            _uiState.update { state ->
+                state.copy(
+                    tickets = state.tickets.map { current ->
+                        if (current.id == ticketId) ticket else current
+                    },
+                    errorMessage = "좋아요를 변경하지 못했어요. 다시 시도해 주세요."
+                )
+            }
+        }
+    }
 }
 
 data class TicketViewUiState(
@@ -66,3 +105,15 @@ data class TicketViewUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null
 )
+
+private fun PublicTicket.withLikeState(liked: Boolean): PublicTicket {
+    val delta = when {
+        this.liked == liked -> 0
+        liked -> 1
+        else -> -1
+    }
+    return copy(
+        liked = liked,
+        likeCount = (likeCount + delta).coerceAtLeast(0)
+    )
+}

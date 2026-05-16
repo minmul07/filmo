@@ -62,6 +62,11 @@ fun CollectionScreen(
             }
         },
         onTicketClick = onTicketClick,
+        onTicketLikeClick = { ticketId ->
+            coroutineScope.launch {
+                viewModel.toggleTicketLike(ticketId)
+            }
+        },
         onDismissDelete = viewModel::dismissDeleteDialog,
         onConfirmDelete = {
             coroutineScope.launch {
@@ -94,6 +99,11 @@ fun CollectionDetailScreen(
         pendingDeleteTicket = uiState.pendingDeleteTicket,
         modifier = modifier,
         onBack = onBack,
+        onTicketLikeClick = {
+            coroutineScope.launch {
+                viewModel.toggleTicketLike(ticketId)
+            }
+        },
         onDeleteTicket = { viewModel.requestDeleteTicket(ticketId) },
         onDismissDelete = viewModel::dismissDeleteDialog,
         onConfirmDelete = {
@@ -158,6 +168,7 @@ private fun CollectionContent(
     modifier: Modifier = Modifier,
     onRetryClick: () -> Unit,
     onTicketClick: (String) -> Unit,
+    onTicketLikeClick: (String) -> Unit,
     onDismissDelete: () -> Unit,
     onConfirmDelete: () -> Unit
 ) {
@@ -225,7 +236,8 @@ private fun CollectionContent(
                 ) { ticket ->
                     CollectionTicketCard(
                         ticket = ticket,
-                        onClick = { onTicketClick(ticket.id) }
+                        onClick = { onTicketClick(ticket.id) },
+                        onLikeClick = { onTicketLikeClick(ticket.id) }
                     )
                 }
             }
@@ -247,6 +259,7 @@ private fun CollectionDetailContent(
     pendingDeleteTicket: MovieTicket?,
     modifier: Modifier = Modifier,
     onBack: () -> Unit,
+    onTicketLikeClick: () -> Unit,
     onDeleteTicket: () -> Unit,
     onDismissDelete: () -> Unit,
     onConfirmDelete: () -> Unit
@@ -291,7 +304,10 @@ private fun CollectionDetailContent(
                 }
 
                 ticket != null -> item {
-                    CollectionDetailTicketCard(ticket = ticket)
+                    CollectionDetailTicketCard(
+                        ticket = ticket,
+                        onLikeClick = onTicketLikeClick
+                    )
                 }
 
                 else -> item {
@@ -475,6 +491,7 @@ private fun CollectionContentPreview() {
             ),
             onRetryClick = {},
             onTicketClick = {},
+            onTicketLikeClick = {},
             onDismissDelete = {},
             onConfirmDelete = {}
         )

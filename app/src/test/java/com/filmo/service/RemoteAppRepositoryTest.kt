@@ -49,6 +49,32 @@ class RemoteAppRepositoryTest {
     }
 
     @Test
+    fun signUpLogsRawAccessTokenFromResponse() = runBlocking {
+        val tree = CapturingTimberTree()
+        Timber.plant(tree)
+        val repository = RemoteAppRepository(
+            FakeApiService(
+                signupResponse = """{"data":{"accessToken":"signup-token-raw"}}"""
+            )
+        )
+
+        val result = repository.signUp(
+            SignupRequest(
+                loginId = "user1",
+                password = "1234",
+                nickname = "서버닉네임"
+            )
+        )
+
+        assertTrue(result.isSuccess)
+        assertTrue(
+            tree.messages.any { message ->
+                message.contains("rawAccessToken=signup-token-raw")
+            }
+        )
+    }
+
+    @Test
     fun loginPostsLoginRequestAndMapsAccessToken() = runBlocking {
         val apiService = FakeApiService(
             loginResponse = """
@@ -387,6 +413,8 @@ class RemoteAppRepositoryTest {
                       "rating": 3,
                       "review": "작고 단단한 영화였어요",
                       "showYn": true,
+                      "likeCount": 7,
+                      "liked": true,
                       "createdAt": "2026-05-16T13:51:52.335Z",
                       "updatedAt": "2026-05-16T13:51:52.335Z"
                     }
@@ -431,15 +459,33 @@ class RemoteAppRepositoryTest {
                 watchedTime = "19:30",
                 rating = 3,
                 ownerNickname = "",
-                review = "작고 단단한 영화였어요"
+                review = "작고 단단한 영화였어요",
+                liked = true,
+                likeCount = 7
             ),
             result.getOrThrow().single()
         )
     }
 
     @Test
-    fun createTicketPostsSwaggerTicketRequest() = runBlocking {
+    fun setTicketLikedCallsPostWhenLikedAndDeleteWhenUnliked() = runBlocking {
         val apiService = FakeApiService()
+        val repository = RemoteAppRepository(apiService)
+
+        val likeResult = repository.setTicketLiked(ticketId = "101", liked = true)
+        val unlikeResult = repository.setTicketLiked(ticketId = "101", liked = false)
+
+        assertTrue(likeResult.isSuccess)
+        assertTrue(unlikeResult.isSuccess)
+        assertEquals(101L, apiService.likedTicketId)
+        assertEquals(101L, apiService.unlikedTicketId)
+    }
+
+    @Test
+    fun createTicketPostsSwaggerTicketRequestAndReturnsCreatedTicketId() = runBlocking {
+        val apiService = FakeApiService(
+            createTicketResponse = """{"code":200,"message":"OK","data":"101"}"""
+        )
         val repository = RemoteAppRepository(apiService)
 
         val result = repository.createTicket(
@@ -453,10 +499,132 @@ class RemoteAppRepositoryTest {
         )
 
         assertTrue(result.isSuccess)
+        assertEquals("101", result.getOrThrow())
         assertEquals(
             """{"movieSeq":1001,"watchedDate":"2026-05-16","watchedTime":"00:00","rating":4,"review":"작고 단단한 영화였어요"}""",
             apiService.createdTicketBody
         )
+    }
+
+    @Test
+    fun createTicketFallsBackToMyTicketsWhenSwaggerCreateResponseHasNullData() = runBlocking {
+        val apiService = FakeApiService(
+            createTicketResponse = """{"code":200,"message":"OK","data":null}""",
+            ticketsResponse = """
+                {
+                  "code": 200,
+                  "message": "OK",
+                  "data": [
+                    {
+                      "id": 101,
+                      "movieSeq": 1001,
+                      "watchedDate": "2026-05-16",
+                      "watchedTime": "00:00",
+                      "rating": 4,
+                      "review": "작고 단단한 영화였어요",
+                      "showYn": false,
+                      "createdAt": "2026-05-16T13:51:52.335Z",
+                      "updatedAt": "2026-05-16T13:51:52.335Z"
+                    }
+                  ]
+                }
+            """.trimIndent()
+        )
+        val repository = RemoteAppRepository(apiService)
+
+        val result = repository.createTicket(
+            CreateTicketRequest(
+                movieId = "1001",
+                watchedDate = "2026-05-16",
+                watchedTime = "00:00",
+                rating = 4,
+                review = "작고 단단한 영화였어요"
+            )
+        )
+
+        assertTrue(result.isSuccess)
+        assertEquals("101", result.getOrThrow())
+    }
+
+    @Test
+    fun createTicketFallsBackToLatestMovieTicketWhenExactCreatedTicketFieldsDiffer() = runBlocking {
+        val apiService = FakeApiService(
+            createTicketResponse = """{"code":200,"message":"OK","data":null}""",
+            ticketsResponse = """
+                {
+                  "code": 200,
+                  "message": "OK",
+                  "data": [
+                    {
+                      "id": 100,
+                      "movieSeq": 9999,
+                      "watchedDate": "2026-05-15",
+                      "watchedTime": "00:00",
+                      "rating": 5,
+                      "review": "다른 티켓",
+                      "createdAt": "2026-05-15T13:51:52.335Z"
+                    },
+                    {
+                      "id": 101,
+                      "movieSeq": 1001,
+                      "watchedDate": "2026-05-16",
+                      "watchedTime": "19:30",
+                      "rating": 4,
+                      "review": "서버에서 달라진 값",
+                      "createdAt": "2026-05-16T13:51:52.335Z"
+                    }
+                  ]
+                }
+            """.trimIndent()
+        )
+        val repository = RemoteAppRepository(apiService)
+
+        val result = repository.createTicket(
+            CreateTicketRequest(
+                movieId = "1001",
+                watchedDate = "2026-05-16",
+                watchedTime = "00:00",
+                rating = 4,
+                review = "작고 단단한 영화였어요"
+            )
+        )
+
+        assertTrue(result.isSuccess)
+        assertEquals("101", result.getOrThrow())
+    }
+
+    @Test
+    fun createTicketSucceedsWithNullIdWhenCreatedTicketCannotBeResolved() = runBlocking {
+        val apiService = FakeApiService(
+            createTicketResponse = """{"code":200,"message":"OK","data":null}""",
+            ticketsResponse = """{"code":200,"message":"OK","data":[]}"""
+        )
+        val repository = RemoteAppRepository(apiService)
+
+        val result = repository.createTicket(
+            CreateTicketRequest(
+                movieId = "1001",
+                watchedDate = "2026-05-16",
+                watchedTime = "00:00",
+                rating = 4,
+                review = "작고 단단한 영화였어요"
+            )
+        )
+
+        assertTrue(result.isSuccess)
+        assertEquals(null, result.getOrThrow())
+    }
+
+    @Test
+    fun updateTicketShareCallsSwaggerShareEndpointWithPublicQuery() = runBlocking {
+        val apiService = FakeApiService()
+        val repository = RemoteAppRepository(apiService)
+
+        val result = repository.updateTicketShare(ticketId = "101", isPublic = true)
+
+        assertTrue(result.isSuccess)
+        assertEquals(101L, apiService.sharedTicketId)
+        assertEquals(true, apiService.sharedTicketShowYn)
     }
 
     @Test
@@ -568,7 +736,8 @@ class RemoteAppRepositoryTest {
         private val ticketDetailResponse: String = """{"data":{}}""",
         private val ticketsResponse: String = """{"data":[]}""",
         private val collectionsResponse: String = """{"data":[]}""",
-        private val publicTicketsResponse: String = """{"data":[]}"""
+        private val publicTicketsResponse: String = """{"data":[]}""",
+        private val createTicketResponse: String = """{"code":200,"message":"OK","data":null}"""
     ) : ApiService {
         var signupBody: String? = null
             private set
@@ -591,6 +760,14 @@ class RemoteAppRepositoryTest {
         var deletedTicketId: Long? = null
             private set
         var removedCollectionTicketId: Long? = null
+            private set
+        var sharedTicketId: Long? = null
+            private set
+        var sharedTicketShowYn: Boolean? = null
+            private set
+        var likedTicketId: Long? = null
+            private set
+        var unlikedTicketId: Long? = null
             private set
 
         override suspend fun ping(): ResponseBody = """{"data":null}""".toResponseBody()
@@ -652,7 +829,13 @@ class RemoteAppRepositoryTest {
             val buffer = Buffer()
             body.writeTo(buffer)
             createdTicketBody = buffer.readUtf8()
-            return """{"code":200,"message":"OK","data":null}""".toResponseBody()
+            return createTicketResponse.toResponseBody()
+        }
+
+        override suspend fun updateTicketShare(ticketId: Long, showYn: Boolean): ResponseBody {
+            sharedTicketId = ticketId
+            sharedTicketShowYn = showYn
+            return """{"code":200,"message":"OK","data":"OK"}""".toResponseBody()
         }
 
         override suspend fun updateTicket(ticketId: Long, body: RequestBody): ResponseBody {
@@ -670,6 +853,16 @@ class RemoteAppRepositoryTest {
 
         override suspend fun removeCollection(ticketId: Long): ResponseBody {
             removedCollectionTicketId = ticketId
+            return """{"code":200,"message":"OK","data":"OK"}""".toResponseBody()
+        }
+
+        override suspend fun addLike(ticketId: Long): ResponseBody {
+            likedTicketId = ticketId
+            return """{"code":200,"message":"OK","data":"OK"}""".toResponseBody()
+        }
+
+        override suspend fun removeLike(ticketId: Long): ResponseBody {
+            unlikedTicketId = ticketId
             return """{"code":200,"message":"OK","data":"OK"}""".toResponseBody()
         }
     }

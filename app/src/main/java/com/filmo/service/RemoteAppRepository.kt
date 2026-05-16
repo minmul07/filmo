@@ -4,6 +4,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -193,7 +194,7 @@ class RemoteAppRepository @Inject constructor(
         Timber.w(it, "RemoteAppRepository.fetchPublicTickets failed")
     }
 
-    override suspend fun createTicket(request: CreateTicketRequest): Result<Unit> = runCatching {
+    override suspend fun createTicket(request: CreateTicketRequest): Result<String?> = runCatching {
         Timber.d(
             "RemoteAppRepository.createTicket request movieId=%s watchedDateLength=%d watchedTimeLength=%d rating=%d reviewLength=%d",
             request.movieId,
@@ -203,7 +204,7 @@ class RemoteAppRepository @Inject constructor(
             request.review.length
         )
         val movieSeq = request.movieId.toLongOrNull() ?: error("Invalid movie id")
-        apiService.createTicket(
+        val response = apiService.createTicket(
             buildJsonRequestBody {
                 put("movieSeq", movieSeq)
                 put("watchedDate", request.watchedDate)
@@ -211,12 +212,41 @@ class RemoteAppRepository @Inject constructor(
                 put("rating", request.rating)
                 put("review", request.review)
             }
-        ).close()
-        Unit
-    }.onSuccess {
-        Timber.d("RemoteAppRepository.createTicket success movieId=%s", request.movieId)
+        )
+        val responseJson = JsonParser.parseToJsonElement(response.string())
+            .jsonObject
+        responseJson.createdTicketIdOrNull()
+            ?: fetchCreatedTicketIdFromMyTicketsOrNull(request = request, movieSeq = movieSeq)
+    }.onSuccess { ticketId ->
+        Timber.d("RemoteAppRepository.createTicket success movieId=%s ticketIdResolved=%s", request.movieId, ticketId != null)
     }.onFailure {
         Timber.w(it, "RemoteAppRepository.createTicket failed movieId=%s", request.movieId)
+    }
+
+    override suspend fun updateTicketShare(ticketId: String, isPublic: Boolean): Result<Unit> = runCatching {
+        Timber.d("RemoteAppRepository.updateTicketShare request ticketId=%s isPublic=%s", ticketId, isPublic)
+        val ticketSeq = ticketId.toLongOrNull() ?: error("Invalid ticket id")
+        apiService.updateTicketShare(ticketId = ticketSeq, showYn = isPublic).close()
+        Unit
+    }.onSuccess {
+        Timber.d("RemoteAppRepository.updateTicketShare success ticketId=%s isPublic=%s", ticketId, isPublic)
+    }.onFailure {
+        Timber.w(it, "RemoteAppRepository.updateTicketShare failed ticketId=%s", ticketId)
+    }
+
+    override suspend fun setTicketLiked(ticketId: String, liked: Boolean): Result<Unit> = runCatching {
+        Timber.d("RemoteAppRepository.setTicketLiked request ticketId=%s liked=%s", ticketId, liked)
+        val ticketSeq = ticketId.toLongOrNull() ?: error("Invalid ticket id")
+        if (liked) {
+            apiService.addLike(ticketSeq).close()
+        } else {
+            apiService.removeLike(ticketSeq).close()
+        }
+        Unit
+    }.onSuccess {
+        Timber.d("RemoteAppRepository.setTicketLiked success ticketId=%s liked=%s", ticketId, liked)
+    }.onFailure {
+        Timber.w(it, "RemoteAppRepository.setTicketLiked failed ticketId=%s liked=%s", ticketId, liked)
     }
 
     override suspend fun updateMyTicket(request: UpdateTicketRequest): Result<MovieTicket> = runCatching {
@@ -330,7 +360,9 @@ class RemoteAppRepository @Inject constructor(
             genre = movieDetail?.genre.orEmpty(),
             director = movieDetail?.director.orEmpty(),
             releaseYear = movieDetail?.releaseYear ?: 0,
-            duration = movieDetail?.duration.orEmpty()
+            duration = movieDetail?.duration.orEmpty(),
+            liked = booleanOrNull("liked") ?: false,
+            likeCount = int("likeCount").coerceAtLeast(0)
         )
     }
 
@@ -351,7 +383,9 @@ class RemoteAppRepository @Inject constructor(
             watchedTime = string("watchedTime"),
             review = string("review"),
             rating = int("rating").coerceIn(MIN_TICKET_RATING, MAX_TICKET_RATING),
-            ownerNickname = string("ownerNickname")
+            ownerNickname = string("ownerNickname"),
+            liked = booleanOrNull("liked") ?: false,
+            likeCount = int("likeCount").coerceAtLeast(0)
         )
     }
 
@@ -382,12 +416,66 @@ class RemoteAppRepository @Inject constructor(
         }.getOrNull()
     }
 
+    private suspend fun fetchCreatedTicketIdFromMyTicketsOrNull(
+        request: CreateTicketRequest,
+        movieSeq: Long
+    ): String? {
+        val tickets = JsonParser.parseToJsonElement(apiService.fetchTickets().string())
+            .jsonObject
+            .dataArray()
+            .map { it.jsonObject }
+        val exactMatch = tickets.latestTicketOrNull { it.matchesCreatedTicket(request = request, movieSeq = movieSeq) }
+        if (exactMatch != null) return exactMatch.ticketIdOrNull()
+
+        val latestMovieTicket = tickets.latestTicketOrNull { it.string("movieSeq") == movieSeq.toString() }
+        if (latestMovieTicket != null) return latestMovieTicket.ticketIdOrNull()
+
+        return tickets.latestTicketOrNull { true }?.ticketIdOrNull()
+    }
+
     private fun JsonObject.dataObject(): JsonObject {
         return this["data"]?.jsonObject ?: error("Missing data")
     }
 
     private fun JsonObject.dataArray(): JsonArray {
         return this["data"]?.jsonArray ?: JsonArray(emptyList())
+    }
+
+    private fun JsonObject.createdTicketIdOrNull(): String? {
+        val data = this["data"] ?: return null
+        return when (data) {
+            is JsonNull -> null
+            is JsonObject -> data.ticketIdOrNull()
+            is JsonPrimitive -> data.contentOrNull?.takeIf { it.isNotBlank() && it != "null" }
+            else -> null
+        }
+    }
+
+    private fun JsonObject.matchesCreatedTicket(
+        request: CreateTicketRequest,
+        movieSeq: Long
+    ): Boolean {
+        return string("movieSeq") == movieSeq.toString() &&
+            string("watchedDate") == request.watchedDate &&
+            string("watchedTime") == request.watchedTime &&
+            int("rating") == request.rating &&
+            string("review") == request.review
+    }
+
+    private fun JsonObject.ticketIdOrNull(): String? {
+        return string("id")
+            .ifBlank { string("ticketId") }
+            .takeIf { it.isNotBlank() }
+    }
+
+    private inline fun List<JsonObject>.latestTicketOrNull(
+        predicate: (JsonObject) -> Boolean
+    ): JsonObject? {
+        return filter(predicate)
+            .maxWithOrNull(
+                compareBy<JsonObject> { it.string("createdAt") }
+                    .thenBy { it.ticketIdOrNull()?.toLongOrNull() ?: 0L }
+            )
     }
 
     private fun JsonObject.array(name: String): JsonArray {

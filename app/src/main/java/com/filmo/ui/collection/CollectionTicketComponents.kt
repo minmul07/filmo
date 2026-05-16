@@ -19,7 +19,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -167,6 +169,7 @@ internal fun TicketCard(
 @Composable
 internal fun CollectionDetailTicketCard(
     ticket: MovieTicket,
+    onLikeClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val posterUrl = remember(ticket.posterImagePath) {
@@ -219,13 +222,25 @@ internal fun CollectionDetailTicketCard(
                             .padding(horizontal = 16.dp, vertical = 10.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text(
-                            text = ticket.movieTitle,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = ticket.movieTitle,
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            CollectionTicketLikeButton(
+                                liked = ticket.liked,
+                                likeCount = ticket.likeCount,
+                                onClick = onLikeClick
+                            )
+                        }
                         Text(
                             text = movieMetadataText,
                             style = MaterialTheme.typography.bodyMedium,
@@ -256,6 +271,7 @@ internal fun CollectionDetailTicketCard(
 internal fun CollectionTicketCard(
     ticket: MovieTicket,
     onClick: () -> Unit,
+    onLikeClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val posterUrl = remember(ticket.posterImagePath) {
@@ -301,13 +317,26 @@ internal fun CollectionTicketCard(
                     .padding(horizontal = 10.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Text(
-                    text = ticket.movieTitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.inverseOnSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = ticket.movieTitle,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.inverseOnSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    CollectionTicketLikeButton(
+                        liked = ticket.liked,
+                        likeCount = ticket.likeCount,
+                        onClick = onLikeClick,
+                        contentColor = MaterialTheme.colorScheme.primary
+                    )
+                }
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -340,6 +369,36 @@ internal fun CollectionTicketCard(
             CollectionTicketPerforationLine(
                 modifier = Modifier.fillMaxSize(),
                 fraction = CollectionTicketOverlayFraction
+            )
+        }
+    }
+}
+
+@Composable
+private fun CollectionTicketLikeButton(
+    liked: Boolean,
+    likeCount: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    contentColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Text(
+            text = likeCount.toString(),
+            style = MaterialTheme.typography.labelMedium,
+            color = contentColor,
+            maxLines = 1
+        )
+        IconButton(onClick = onClick) {
+            Icon(
+                imageVector = if (liked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                contentDescription = if (liked) "좋아요 취소" else "좋아요",
+                modifier = Modifier.size(18.dp),
+                tint = contentColor
             )
         }
     }

@@ -42,6 +42,37 @@ class TicketViewModelTest {
         assertEquals("공개 티켓을 불러오지 못했어요. 다시 시도해 주세요.", state.errorMessage)
     }
 
+    @Test
+    fun toggleTicketLikeUpdatesPublicTicketAndCallsRepository() = runBlocking {
+        val repository = FakeTicketViewRepository()
+        val viewModel = TicketViewModel(repository)
+
+        viewModel.loadPublicTickets()
+        viewModel.toggleTicketLike("public-1")
+
+        val ticket = viewModel.uiState.value.tickets.single()
+        assertTrue(ticket.liked)
+        assertEquals(1, ticket.likeCount)
+        assertEquals(listOf("public-1" to true), repository.likeRequests)
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun toggleTicketLikeRollsBackWhenRepositoryFails() = runBlocking {
+        val repository = FakeTicketViewRepository(
+            setTicketLikedResult = Result.failure(IllegalStateException("boom"))
+        )
+        val viewModel = TicketViewModel(repository)
+
+        viewModel.loadPublicTickets()
+        viewModel.toggleTicketLike("public-1")
+
+        val ticket = viewModel.uiState.value.tickets.single()
+        assertFalse(ticket.liked)
+        assertEquals(0, ticket.likeCount)
+        assertEquals("좋아요를 변경하지 못했어요. 다시 시도해 주세요.", viewModel.uiState.value.errorMessage)
+    }
+
     private class FakeTicketViewRepository(
         private val publicTicketsResult: Result<List<PublicTicket>> = Result.success(
             listOf(
@@ -57,11 +88,16 @@ class TicketViewModelTest {
                     theaterName = "인디스페이스",
                     watchedDate = "2026-05-16",
                     watchedTime = "19:30",
-                    review = "작고 단단한 영화였어요"
+                    review = "작고 단단한 영화였어요",
+                    liked = false,
+                    likeCount = 0
                 )
             )
-        )
+        ),
+        private val setTicketLikedResult: Result<Unit> = Result.success(Unit)
     ) : AppRepository {
+        val likeRequests = mutableListOf<Pair<String, Boolean>>()
+
         override suspend fun ping(): Result<String> = Result.success("pong")
 
         override suspend fun fetchMovieCatalog(
@@ -80,6 +116,11 @@ class TicketViewModelTest {
 
         override suspend fun fetchPublicTickets(sort: String): Result<List<PublicTicket>> {
             return publicTicketsResult
+        }
+
+        override suspend fun setTicketLiked(ticketId: String, liked: Boolean): Result<Unit> {
+            likeRequests += ticketId to liked
+            return setTicketLikedResult
         }
 
         override suspend fun updateMyTicket(request: UpdateTicketRequest) =

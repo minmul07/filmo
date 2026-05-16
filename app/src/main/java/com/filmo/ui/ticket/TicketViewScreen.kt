@@ -17,9 +17,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -77,6 +79,11 @@ fun TicketViewScreen(
             coroutineScope.launch {
                 viewModel.loadPublicTickets()
             }
+        },
+        onTicketLikeClick = { ticketId ->
+            coroutineScope.launch {
+                viewModel.toggleTicketLike(ticketId)
+            }
         }
     )
 }
@@ -85,6 +92,7 @@ fun TicketViewScreen(
 private fun TicketViewContent(
     uiState: TicketViewUiState,
     onRetryClick: () -> Unit,
+    onTicketLikeClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -146,7 +154,8 @@ private fun TicketViewContent(
                     contentType = { "public-ticket" }
                 ) { ticket ->
                     PublicTicketCard(
-                        ticket = ticket
+                        ticket = ticket,
+                        onLikeClick = { onTicketLikeClick(ticket.id) }
                     )
                 }
             }
@@ -178,6 +187,7 @@ private fun TicketViewTopBar(
 @Composable
 private fun PublicTicketCard(
     ticket: PublicTicket,
+    onLikeClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val posterUrl = remember(ticket.posterImagePath) {
@@ -256,11 +266,10 @@ private fun PublicTicketCard(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            Icon(
-                                imageVector = Icons.Outlined.FavoriteBorder,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.primary
+                            TicketViewLikeButton(
+                                liked = ticket.liked,
+                                likeCount = ticket.likeCount,
+                                onClick = onLikeClick
                             )
                         }
                         Text(
@@ -285,6 +294,35 @@ private fun PublicTicketCard(
             TicketViewTicketPerforationLine(
                 modifier = Modifier.fillMaxSize(),
                 fraction = TicketViewTicketPerforationFraction
+            )
+        }
+    }
+}
+
+@Composable
+private fun TicketViewLikeButton(
+    liked: Boolean,
+    likeCount: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Text(
+            text = likeCount.toString(),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1
+        )
+        IconButton(onClick = onClick) {
+            Icon(
+                imageVector = if (liked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                contentDescription = if (liked) "좋아요 취소" else "좋아요",
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.primary
             )
         }
     }
@@ -601,7 +639,8 @@ private fun TicketViewContentPreview() {
                     )
                 )
             ),
-            onRetryClick = {}
+            onRetryClick = {},
+            onTicketLikeClick = {}
         )
     }
 }

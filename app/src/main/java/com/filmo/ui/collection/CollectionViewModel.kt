@@ -131,6 +131,43 @@ class CollectionViewModel @Inject constructor(
         }
     }
 
+    suspend fun toggleTicketLike(ticketId: String) {
+        val ticket = _uiState.value.findTicket(ticketId)
+        if (ticket == null) {
+            Timber.d("CollectionViewModel.toggleTicketLike ticket not found ticketId=%s", ticketId)
+            return
+        }
+
+        val nextLiked = !ticket.liked
+        Timber.d("CollectionViewModel.toggleTicketLike request ticketId=%s liked=%s", ticketId, nextLiked)
+        _uiState.update { state ->
+            state.copy(
+                myTickets = state.myTickets.updateLike(ticketId, nextLiked),
+                savedTickets = state.savedTickets.updateLike(ticketId, nextLiked),
+                errorMessage = null
+            )
+        }
+
+        val result = appRepository.setTicketLiked(ticketId = ticketId, liked = nextLiked)
+        result
+            .onSuccess {
+                Timber.d("CollectionViewModel.toggleTicketLike success ticketId=%s liked=%s", ticketId, nextLiked)
+            }
+            .onFailure {
+                Timber.w(it, "CollectionViewModel.toggleTicketLike failed ticketId=%s liked=%s", ticketId, nextLiked)
+            }
+
+        if (result.isFailure) {
+            _uiState.update { state ->
+                state.copy(
+                    myTickets = state.myTickets.restoreTicket(ticket),
+                    savedTickets = state.savedTickets.restoreTicket(ticket),
+                    errorMessage = "좋아요를 변경하지 못했어요. 다시 시도해 주세요."
+                )
+            }
+        }
+    }
+
     fun startEditingTicket(ticketId: String) {
         Timber.d("CollectionViewModel.startEditingTicket ticketId=%s", ticketId)
         _uiState.update { state ->
@@ -302,5 +339,29 @@ private fun MovieTicket.toEditingTicket(): EditingTicket {
         watchedDate = watchedDate,
         rating = rating,
         review = review
+    )
+}
+
+private fun List<MovieTicket>.updateLike(ticketId: String, liked: Boolean): List<MovieTicket> {
+    return map { ticket ->
+        if (ticket.id == ticketId) ticket.withLikeState(liked) else ticket
+    }
+}
+
+private fun List<MovieTicket>.restoreTicket(ticket: MovieTicket): List<MovieTicket> {
+    return map { current ->
+        if (current.id == ticket.id) ticket else current
+    }
+}
+
+private fun MovieTicket.withLikeState(liked: Boolean): MovieTicket {
+    val delta = when {
+        this.liked == liked -> 0
+        liked -> 1
+        else -> -1
+    }
+    return copy(
+        liked = liked,
+        likeCount = (likeCount + delta).coerceAtLeast(0)
     )
 }
