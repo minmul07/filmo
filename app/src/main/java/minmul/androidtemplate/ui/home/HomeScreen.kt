@@ -21,7 +21,8 @@ import minmul.androidtemplate.ui.theme.AndroidTemplateTheme
 fun HomeScreen(
     mainUiState: MainUiState,
     modifier: Modifier = Modifier,
-    onNavigateToSetting: () -> Unit = {}
+    onNavigateToSetting: () -> Unit = {},
+    onPingClick: () -> Unit = {}
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize()
@@ -42,6 +43,25 @@ fun HomeScreen(
                 modifier = Modifier.widthIn(min = ButtonMinWidth)
             ) {
                 Text(text = "1 -> 2")
+            }
+            Button(
+                onClick = onPingClick,
+                enabled = !mainUiState.isPingLoading,
+                modifier = Modifier.widthIn(min = ButtonMinWidth)
+            ) {
+                Text(
+                    text = if (mainUiState.isPingLoading) {
+                        "Ping 보내는 중..."
+                    } else {
+                        "서버 Ping"
+                    }
+                )
+            }
+            mainUiState.pingMessage?.let { pingMessage ->
+                Text(
+                    text = pingMessage,
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
         }
     }

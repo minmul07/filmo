@@ -7,7 +7,7 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 
 interface ApiService {
-    @GET("health/ping")
+    @GET("health")
     suspend fun ping(): ResponseBody
 
     @GET("sample/items")

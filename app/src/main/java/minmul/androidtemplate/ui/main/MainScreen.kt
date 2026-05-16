@@ -56,7 +56,8 @@ fun MainScreen(
             entry<ScreenDestination.Home> {
                 HomeScreen(
                     mainUiState = mainUiState,
-                    onNavigateToSetting = navigateToSetting
+                    onNavigateToSetting = navigateToSetting,
+                    onPingClick = mainViewModel::pingServer
                 )
             }
 

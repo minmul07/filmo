@@ -10,12 +10,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import minmul.androidtemplate.service.AppRepository
 import minmul.androidtemplate.service.LocalDisk
 import javax.inject.Inject
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    private val localDisk: LocalDisk
+    private val localDisk: LocalDisk,
+    private val appRepository: AppRepository
 ) : ViewModel() {
     private val _mainUiState = MutableStateFlow(MainUiState())
     val mainUiState: StateFlow<MainUiState> = _mainUiState.asStateFlow()
@@ -38,6 +40,19 @@ class MainViewModel @Inject constructor(
 
             }
 
+        }
+    }
+
+    fun pingServer() {
+        if (_mainUiState.value.isPingLoading) return
+
+        _mainUiState.value = _mainUiState.value.toPingLoading()
+        viewModelScope.launch {
+            val result = appRepository.ping()
+            _mainUiState.value = result.fold(
+                onSuccess = { response -> _mainUiState.value.toPingSuccess(response) },
+                onFailure = { _mainUiState.value.toPingFailure() }
+            )
         }
     }
 }
