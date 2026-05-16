@@ -325,6 +325,7 @@ class RemoteAppRepositoryTest {
                       "message": "OK",
                       "data": [
                         {
+                          "id": 999,
                           "ticketId": 201,
                           "movieSeq": 1002,
                           "watchedDate": "2026-05-17",
@@ -395,6 +396,94 @@ class RemoteAppRepositoryTest {
             ),
             collection.savedTickets.single()
         )
+    }
+
+    @Test
+    fun fetchTicketDetailUsesTicketEndpointForOwnedTicketAndMapsLikeState() = runBlocking {
+        val apiService = FakeApiService(
+            ticketDetailResponse = """
+                {
+                  "code": 200,
+                  "message": "OK",
+                  "data": {
+                    "id": 101,
+                    "movieSeq": 1001,
+                    "watchedDate": "2026-05-17",
+                    "watchedTime": "20:00",
+                    "rating": 5,
+                    "review": "상세 좋아요 상태",
+                    "likeCount": 4,
+                    "liked": true
+                  }
+                }
+            """.trimIndent(),
+            movieDetailResponse = """
+                {
+                  "code": 200,
+                  "message": "OK",
+                  "data": {
+                    "seq": 1001,
+                    "korTitle": "테스트 영화",
+                    "director": "테스트 감독",
+                    "productionYear": "2024",
+                    "genreName": "드라마"
+                  }
+                }
+            """.trimIndent()
+        )
+        val repository = RemoteAppRepository(apiService)
+
+        val result = repository.fetchTicketDetail(ticketId = "101", ownedByMe = true)
+
+        assertTrue(result.isSuccess)
+        assertEquals(101L, apiService.requestedTicketDetailId)
+        assertEquals(null, apiService.requestedCollectionDetailId)
+        assertEquals(true, result.getOrThrow().liked)
+        assertEquals(4, result.getOrThrow().likeCount)
+    }
+
+    @Test
+    fun fetchTicketDetailUsesCollectionEndpointForSavedTicketAndMapsLikeState() = runBlocking {
+        val apiService = FakeApiService(
+            collectionDetailResponse = """
+                {
+                  "code": 200,
+                  "message": "OK",
+                  "data": {
+                    "id": 201,
+                    "movieSeq": 1001,
+                    "watchedDate": "2026-05-17",
+                    "watchedTime": "20:00",
+                    "rating": 5,
+                    "review": "저장 상세 좋아요 상태",
+                    "likeCount": 9,
+                    "liked": true
+                  }
+                }
+            """.trimIndent(),
+            movieDetailResponse = """
+                {
+                  "code": 200,
+                  "message": "OK",
+                  "data": {
+                    "seq": 1001,
+                    "korTitle": "테스트 영화",
+                    "director": "테스트 감독",
+                    "productionYear": "2024",
+                    "genreName": "드라마"
+                  }
+                }
+            """.trimIndent()
+        )
+        val repository = RemoteAppRepository(apiService)
+
+        val result = repository.fetchTicketDetail(ticketId = "201", ownedByMe = false)
+
+        assertTrue(result.isSuccess)
+        assertEquals(null, apiService.requestedTicketDetailId)
+        assertEquals(201L, apiService.requestedCollectionDetailId)
+        assertEquals(true, result.getOrThrow().liked)
+        assertEquals(9, result.getOrThrow().likeCount)
     }
 
     @Test
@@ -736,6 +825,7 @@ class RemoteAppRepositoryTest {
         private val ticketDetailResponse: String = """{"data":{}}""",
         private val ticketsResponse: String = """{"data":[]}""",
         private val collectionsResponse: String = """{"data":[]}""",
+        private val collectionDetailResponse: String = """{"data":{}}""",
         private val publicTicketsResponse: String = """{"data":[]}""",
         private val createTicketResponse: String = """{"code":200,"message":"OK","data":null}"""
     ) : ApiService {
@@ -760,6 +850,10 @@ class RemoteAppRepositoryTest {
         var deletedTicketId: Long? = null
             private set
         var removedCollectionTicketId: Long? = null
+            private set
+        var requestedTicketDetailId: Long? = null
+            private set
+        var requestedCollectionDetailId: Long? = null
             private set
         var sharedTicketId: Long? = null
             private set
@@ -814,11 +908,18 @@ class RemoteAppRepositoryTest {
         override suspend fun fetchTickets(): ResponseBody =
             ticketsResponse.toResponseBody()
 
-        override suspend fun fetchTicket(ticketId: Long): ResponseBody =
-            ticketDetailResponse.toResponseBody()
+        override suspend fun fetchTicket(ticketId: Long): ResponseBody {
+            requestedTicketDetailId = ticketId
+            return ticketDetailResponse.toResponseBody()
+        }
 
         override suspend fun fetchCollections(): ResponseBody =
             collectionsResponse.toResponseBody()
+
+        override suspend fun fetchCollection(ticketId: Long): ResponseBody {
+            requestedCollectionDetailId = ticketId
+            return collectionDetailResponse.toResponseBody()
+        }
 
         override suspend fun fetchPublicTickets(sort: String): ResponseBody {
             requestedPublicTicketSort = sort

@@ -7,11 +7,15 @@ import com.filmo.service.PublicTicket
 import com.filmo.service.TicketCollection
 import com.filmo.service.UpdateTicketRequest
 import kotlinx.coroutines.runBlocking
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import retrofit2.HttpException
+import retrofit2.Response
 
 class TicketViewModelTest {
     @Test
@@ -73,6 +77,22 @@ class TicketViewModelTest {
         assertEquals("좋아요를 변경하지 못했어요. 다시 시도해 주세요.", viewModel.uiState.value.errorMessage)
     }
 
+    @Test
+    fun toggleTicketLikeShowsOwnPostMessageWhenRepositoryReturnsBadRequest() = runBlocking {
+        val repository = FakeTicketViewRepository(
+            setTicketLikedResult = Result.failure(httpException(400))
+        )
+        val viewModel = TicketViewModel(repository)
+
+        viewModel.loadPublicTickets()
+        viewModel.toggleTicketLike("public-1")
+
+        val ticket = viewModel.uiState.value.tickets.single()
+        assertFalse(ticket.liked)
+        assertEquals(0, ticket.likeCount)
+        assertEquals("나의 게시물에는 좋아요를 누를 수 없습니다.", viewModel.uiState.value.errorMessage)
+    }
+
     private class FakeTicketViewRepository(
         private val publicTicketsResult: Result<List<PublicTicket>> = Result.success(
             listOf(
@@ -129,5 +149,13 @@ class TicketViewModelTest {
         override suspend fun deleteMyTicket(ticketId: String): Result<Unit> = Result.success(Unit)
 
         override suspend fun removeSavedTicket(ticketId: String): Result<Unit> = Result.success(Unit)
+    }
+
+    private companion object {
+        fun httpException(code: Int): HttpException {
+            val body = """{"message":"bad request"}"""
+                .toResponseBody("application/json".toMediaType())
+            return HttpException(Response.error<Unit>(code, body))
+        }
     }
 }

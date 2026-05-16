@@ -215,6 +215,13 @@ class MockAppRepository @Inject constructor() : AppRepository {
         )
     }
 
+    override suspend fun fetchTicketDetail(ticketId: String, ownedByMe: Boolean): Result<MovieTicket> = withMockDelay(
+        "fetchTicketDetail(ticketId=$ticketId, ownedByMe=$ownedByMe)"
+    ) {
+        val tickets = if (ownedByMe) myTickets else savedTickets
+        tickets.firstOrNull { it.id == ticketId } ?: error("Ticket not found")
+    }
+
     override suspend fun fetchPublicTickets(sort: String): Result<List<PublicTicket>> = withMockDelay(
         "fetchPublicTickets(sort=$sort)"
     ) {

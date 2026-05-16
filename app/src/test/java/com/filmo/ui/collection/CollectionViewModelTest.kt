@@ -7,11 +7,15 @@ import com.filmo.service.MovieTicket
 import com.filmo.service.TicketCollection
 import com.filmo.service.UpdateTicketRequest
 import kotlinx.coroutines.runBlocking
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import retrofit2.HttpException
+import retrofit2.Response
 
 class CollectionViewModelTest {
     @Test
@@ -116,10 +120,59 @@ class CollectionViewModelTest {
         assertEquals("좋아요를 변경하지 못했어요. 다시 시도해 주세요.", viewModel.uiState.value.errorMessage)
     }
 
+    @Test
+    fun toggleTicketLikeShowsOwnPostMessageWhenRepositoryReturnsBadRequest() = runBlocking {
+        val repository = FakeCollectionRepository(
+            setTicketLikedResult = Result.failure(httpException(400))
+        )
+        val viewModel = CollectionViewModel(repository)
+
+        viewModel.loadTickets()
+        viewModel.toggleTicketLike("my-1")
+
+        val ticket = viewModel.uiState.value.myTickets.single()
+        assertFalse(ticket.liked)
+        assertEquals(0, ticket.likeCount)
+        assertEquals("나의 게시물에는 좋아요를 누를 수 없습니다.", viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun loadTicketDetailRefreshesLikedStateBeforeToggle() = runBlocking {
+        val repository = FakeCollectionRepository(
+            detailTicketResult = Result.success(
+                MovieTicket(
+                    id = "my-1",
+                    movieTitle = "과속스캔들",
+                    theaterName = "서울아트시네마",
+                    watchedDate = "2024-03-20",
+                    rating = 4,
+                    review = "유쾌하고 따뜻한 영화였어요",
+                    ownedByMe = true,
+                    savedByMe = false,
+                    liked = true,
+                    likeCount = 3
+                )
+            )
+        )
+        val viewModel = CollectionViewModel(repository)
+
+        viewModel.loadTickets()
+        viewModel.loadTicketDetail("my-1")
+        viewModel.toggleTicketLike("my-1")
+
+        val ticket = viewModel.uiState.value.myTickets.single()
+        assertFalse(ticket.liked)
+        assertEquals(2, ticket.likeCount)
+        assertEquals(listOf("my-1" to false), repository.likeRequests)
+        assertEquals(listOf("my-1" to true), repository.detailRequests)
+    }
+
     private class FakeCollectionRepository(
-        private val setTicketLikedResult: Result<Unit> = Result.success(Unit)
+        private val setTicketLikedResult: Result<Unit> = Result.success(Unit),
+        private val detailTicketResult: Result<MovieTicket>? = null
     ) : AppRepository {
         val likeRequests = mutableListOf<Pair<String, Boolean>>()
+        val detailRequests = mutableListOf<Pair<String, Boolean>>()
 
         private val myTickets = mutableListOf(
             MovieTicket(
@@ -173,6 +226,11 @@ class CollectionViewModelTest {
             )
         }
 
+        override suspend fun fetchTicketDetail(ticketId: String, ownedByMe: Boolean): Result<MovieTicket> {
+            detailRequests += ticketId to ownedByMe
+            return detailTicketResult ?: Result.failure(UnsupportedOperationException("Not needed in this test"))
+        }
+
         override suspend fun updateMyTicket(request: UpdateTicketRequest): Result<MovieTicket> {
             val index = myTickets.indexOfFirst { it.id == request.ticketId }
             val updated = myTickets[index].copy(
@@ -197,6 +255,14 @@ class CollectionViewModelTest {
         override suspend fun removeSavedTicket(ticketId: String): Result<Unit> {
             savedTickets.removeAll { it.id == ticketId }
             return Result.success(Unit)
+        }
+    }
+
+    private companion object {
+        fun httpException(code: Int): HttpException {
+            val body = """{"message":"bad request"}"""
+                .toResponseBody("application/json".toMediaType())
+            return HttpException(Response.error<Unit>(code, body))
         }
     }
 }

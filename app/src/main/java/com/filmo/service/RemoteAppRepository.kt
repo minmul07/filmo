@@ -182,6 +182,29 @@ class RemoteAppRepository @Inject constructor(
         Timber.w(it, "RemoteAppRepository.fetchTicketCollection failed")
     }
 
+    override suspend fun fetchTicketDetail(ticketId: String, ownedByMe: Boolean): Result<MovieTicket> = runCatching {
+        Timber.d("RemoteAppRepository.fetchTicketDetail request ticketId=%s ownedByMe=%s", ticketId, ownedByMe)
+        val ticketSeq = ticketId.toLongOrNull() ?: error("Invalid ticket id")
+        val response = if (ownedByMe) {
+            apiService.fetchTicket(ticketSeq)
+        } else {
+            apiService.fetchCollection(ticketSeq)
+        }
+        JsonParser.parseToJsonElement(response.string())
+            .jsonObject
+            .dataObject()
+            .toMovieTicket(ownedByMe = ownedByMe)
+    }.onSuccess { ticket ->
+        Timber.d(
+            "RemoteAppRepository.fetchTicketDetail success ticketId=%s liked=%s likeCount=%d",
+            ticket.id,
+            ticket.liked,
+            ticket.likeCount
+        )
+    }.onFailure {
+        Timber.w(it, "RemoteAppRepository.fetchTicketDetail failed ticketId=%s ownedByMe=%s", ticketId, ownedByMe)
+    }
+
     override suspend fun fetchPublicTickets(sort: String): Result<List<PublicTicket>> = runCatching {
         Timber.d("RemoteAppRepository.fetchPublicTickets request sort=%s", sort)
         JsonParser.parseToJsonElement(apiService.fetchPublicTickets(sort = sort).string())
@@ -344,8 +367,13 @@ class RemoteAppRepository @Inject constructor(
     private suspend fun JsonObject.toMovieTicket(ownedByMe: Boolean): MovieTicket {
         val movieSeq = string("movieSeq")
         val movieDetail = fetchMovieDetailOrNull(movieSeq)
+        val ticketId = if (ownedByMe) {
+            string("id").ifBlank { string("ticketId") }
+        } else {
+            string("ticketId").ifBlank { string("id") }
+        }
         return MovieTicket(
-            id = string("id").ifBlank { string("ticketId") },
+            id = ticketId,
             movieTitle = string("movieTitle")
                 .ifBlank { string("korTitle") }
                 .ifBlank { movieDetail?.title.orEmpty() }

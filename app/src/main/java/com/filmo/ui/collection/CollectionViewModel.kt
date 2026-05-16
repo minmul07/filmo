@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import com.filmo.service.AppRepository
 import com.filmo.service.MovieTicket
 import com.filmo.service.UpdateTicketRequest
+import com.filmo.ui.common.toTicketLikeErrorMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -131,6 +132,58 @@ class CollectionViewModel @Inject constructor(
         }
     }
 
+    suspend fun loadTicketDetail(ticketId: String) {
+        if (_uiState.value.myTickets.isEmpty() && _uiState.value.savedTickets.isEmpty()) {
+            loadTickets()
+        }
+
+        val ticket = _uiState.value.findTicket(ticketId)
+        if (ticket == null) {
+            Timber.d("CollectionViewModel.loadTicketDetail ticket not found ticketId=%s", ticketId)
+            _uiState.update {
+                it.copy(errorMessage = "티켓을 찾지 못했어요.")
+            }
+            return
+        }
+
+        Timber.d(
+            "CollectionViewModel.loadTicketDetail request ticketId=%s ownedByMe=%s",
+            ticket.id,
+            ticket.ownedByMe
+        )
+        val result = appRepository.fetchTicketDetail(
+            ticketId = ticket.id,
+            ownedByMe = ticket.ownedByMe
+        )
+        result
+            .onSuccess { detail ->
+                Timber.d(
+                    "CollectionViewModel.loadTicketDetail success ticketId=%s liked=%s likeCount=%d",
+                    detail.id,
+                    detail.liked,
+                    detail.likeCount
+                )
+            }
+            .onFailure {
+                Timber.w(it, "CollectionViewModel.loadTicketDetail failed ticketId=%s", ticket.id)
+            }
+
+        _uiState.update { state ->
+            result.fold(
+                onSuccess = { detail ->
+                    state.copy(
+                        myTickets = state.myTickets.replaceTicket(ticket.id, detail),
+                        savedTickets = state.savedTickets.replaceTicket(ticket.id, detail),
+                        errorMessage = null
+                    )
+                },
+                onFailure = {
+                    state.copy(errorMessage = "티켓 상세 정보를 불러오지 못했어요. 다시 시도해 주세요.")
+                }
+            )
+        }
+    }
+
     suspend fun toggleTicketLike(ticketId: String) {
         val ticket = _uiState.value.findTicket(ticketId)
         if (ticket == null) {
@@ -157,12 +210,12 @@ class CollectionViewModel @Inject constructor(
                 Timber.w(it, "CollectionViewModel.toggleTicketLike failed ticketId=%s liked=%s", ticketId, nextLiked)
             }
 
-        if (result.isFailure) {
+        result.exceptionOrNull()?.let { error ->
             _uiState.update { state ->
                 state.copy(
                     myTickets = state.myTickets.restoreTicket(ticket),
                     savedTickets = state.savedTickets.restoreTicket(ticket),
-                    errorMessage = "좋아요를 변경하지 못했어요. 다시 시도해 주세요."
+                    errorMessage = error.toTicketLikeErrorMessage()
                 )
             }
         }
@@ -351,6 +404,12 @@ private fun List<MovieTicket>.updateLike(ticketId: String, liked: Boolean): List
 private fun List<MovieTicket>.restoreTicket(ticket: MovieTicket): List<MovieTicket> {
     return map { current ->
         if (current.id == ticket.id) ticket else current
+    }
+}
+
+private fun List<MovieTicket>.replaceTicket(ticketId: String, updatedTicket: MovieTicket): List<MovieTicket> {
+    return map { current ->
+        if (current.id == ticketId) updatedTicket else current
     }
 }
 

@@ -99,6 +99,11 @@ interface ApiService {
     @GET("api/collections")
     suspend fun fetchCollections(): ResponseBody
 
+    @GET("api/collections/{ticketId}")
+    suspend fun fetchCollection(
+        @Path("ticketId") ticketId: Long
+    ): ResponseBody
+
     @DELETE("api/collections/{ticketId}")
     suspend fun removeCollection(
         @Path("ticketId") ticketId: Long

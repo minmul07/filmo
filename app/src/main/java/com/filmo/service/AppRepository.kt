@@ -42,6 +42,10 @@ interface AppRepository {
 
     suspend fun fetchTicketCollection(): Result<TicketCollection>
 
+    suspend fun fetchTicketDetail(ticketId: String, ownedByMe: Boolean): Result<MovieTicket> {
+        return Result.failure(UnsupportedOperationException("Ticket detail API is not implemented."))
+    }
+
     suspend fun fetchPublicTickets(sort: String = "latest"): Result<List<PublicTicket>> {
         return Result.failure(UnsupportedOperationException("Public ticket API is not implemented."))
     }

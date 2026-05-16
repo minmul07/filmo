@@ -89,7 +89,7 @@ fun CollectionDetailScreen(
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(viewModel, ticketId) {
-        viewModel.loadTickets()
+        viewModel.loadTicketDetail(ticketId)
     }
 
     CollectionDetailContent(
@@ -99,9 +99,9 @@ fun CollectionDetailScreen(
         pendingDeleteTicket = uiState.pendingDeleteTicket,
         modifier = modifier,
         onBack = onBack,
-        onTicketLikeClick = {
+        onTicketLikeClick = { likedTicketId ->
             coroutineScope.launch {
-                viewModel.toggleTicketLike(ticketId)
+                viewModel.toggleTicketLike(likedTicketId)
             }
         },
         onDeleteTicket = { viewModel.requestDeleteTicket(ticketId) },
@@ -259,7 +259,7 @@ private fun CollectionDetailContent(
     pendingDeleteTicket: MovieTicket?,
     modifier: Modifier = Modifier,
     onBack: () -> Unit,
-    onTicketLikeClick: () -> Unit,
+    onTicketLikeClick: (String) -> Unit,
     onDeleteTicket: () -> Unit,
     onDismissDelete: () -> Unit,
     onConfirmDelete: () -> Unit
@@ -306,7 +306,7 @@ private fun CollectionDetailContent(
                 ticket != null -> item {
                     CollectionDetailTicketCard(
                         ticket = ticket,
-                        onLikeClick = onTicketLikeClick
+                        onLikeClick = { onTicketLikeClick(ticket.id) }
                     )
                 }
 

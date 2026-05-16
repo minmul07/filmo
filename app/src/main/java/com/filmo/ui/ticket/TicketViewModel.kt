@@ -3,6 +3,7 @@ package com.filmo.ui.ticket
 import androidx.lifecycle.ViewModel
 import com.filmo.service.AppRepository
 import com.filmo.service.PublicTicket
+import com.filmo.ui.common.toTicketLikeErrorMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -87,13 +88,13 @@ class TicketViewModel @Inject constructor(
                 Timber.w(it, "TicketViewModel.toggleTicketLike failed ticketId=%s liked=%s", ticketId, nextLiked)
             }
 
-        if (result.isFailure) {
+        result.exceptionOrNull()?.let { error ->
             _uiState.update { state ->
                 state.copy(
                     tickets = state.tickets.map { current ->
                         if (current.id == ticketId) ticket else current
                     },
-                    errorMessage = "좋아요를 변경하지 못했어요. 다시 시도해 주세요."
+                    errorMessage = error.toTicketLikeErrorMessage()
                 )
             }
         }
