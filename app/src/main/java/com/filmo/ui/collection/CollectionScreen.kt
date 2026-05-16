@@ -75,11 +75,6 @@ fun CollectionScreen(
             }
         },
         onTicketClick = onTicketClick,
-        onTicketLikeClick = { ticketId ->
-            coroutineScope.launch {
-                viewModel.toggleTicketLike(ticketId)
-            }
-        },
         onDismissDelete = viewModel::dismissDeleteDialog,
         onConfirmDelete = {
             coroutineScope.launch {
@@ -176,7 +171,6 @@ private fun CollectionContent(
     bottomContentPadding: Dp = 0.dp,
     onRetryClick: () -> Unit,
     onTicketClick: (String) -> Unit,
-    onTicketLikeClick: (String) -> Unit,
     onDismissDelete: () -> Unit,
     onConfirmDelete: () -> Unit
 ) {
@@ -244,8 +238,7 @@ private fun CollectionContent(
                 ) { ticket ->
                     CollectionTicketCard(
                         ticket = ticket,
-                        onClick = { onTicketClick(ticket.id) },
-                        onLikeClick = { onTicketLikeClick(ticket.id) }
+                        onClick = { onTicketClick(ticket.id) }
                     )
                 }
             }
@@ -487,7 +480,6 @@ private fun CollectionContentPreview() {
             ),
             onRetryClick = {},
             onTicketClick = {},
-            onTicketLikeClick = {},
             onDismissDelete = {},
             onConfirmDelete = {}
         )

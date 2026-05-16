@@ -270,7 +270,6 @@ internal fun CollectionDetailTicketCard(
 internal fun CollectionTicketCard(
     ticket: MovieTicket,
     onClick: () -> Unit,
-    onLikeClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val posterUrl = remember(ticket.posterImagePath) {
@@ -312,8 +311,8 @@ internal fun CollectionTicketCard(
                     .align(Alignment.BottomStart)
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.86f))
-                    .padding(horizontal = 10.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -327,11 +326,6 @@ internal fun CollectionTicketCard(
                         color = MaterialTheme.colorScheme.inverseOnSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
-                    )
-                    CollectionTicketLikeButton(
-                        liked = ticket.liked,
-                        onClick = onLikeClick,
-                        contentColor = MaterialTheme.colorScheme.primary
                     )
                 }
                 Row(
