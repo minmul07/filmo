@@ -5,11 +5,14 @@ import kotlinx.serialization.Serializable
 
 sealed interface ScreenDestination : NavKey {
     @Serializable
-    data object Home : ScreenDestination
+    data object Feed : ScreenDestination
 
     @Serializable
-    data object Setting : ScreenDestination
+    data object Record : ScreenDestination
 
     @Serializable
-    data object Test : ScreenDestination
+    data object TheaterFinder : ScreenDestination
+
+    @Serializable
+    data object Collection : ScreenDestination
 }

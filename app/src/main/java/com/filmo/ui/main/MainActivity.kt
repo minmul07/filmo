@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
 
                     if (isInitialSetupFinished != null) {
                         MainScreen(
-                            startDestination = ScreenDestination.Home
+                            startDestination = ScreenDestination.Feed
                         )
                     }
                 }
