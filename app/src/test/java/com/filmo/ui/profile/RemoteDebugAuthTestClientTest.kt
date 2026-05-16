@@ -1,0 +1,83 @@
+package com.filmo.ui.profile
+
+import com.filmo.service.ApiService
+import kotlinx.coroutines.runBlocking
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody
+import okhttp3.ResponseBody
+import okhttp3.ResponseBody.Companion.toResponseBody
+import okio.Buffer
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class RemoteDebugAuthTestClientTest {
+    @Test
+    fun runAuthTestLogsInAndSendsBearerAccessToken() = runBlocking {
+        val apiService = FakeApiService()
+        val client = RemoteDebugAuthTestClient(apiService)
+
+        val result = client.runAuthTest(DebugAuthTestCredential("user3", "password3"))
+
+        assertTrue(result.isSuccess)
+        assertEquals("""{"loginId":"user3","password":"password3"}""", apiService.loginBody)
+        assertEquals("Bearer access-token-3", apiService.authorization)
+        assertEquals("3", result.getOrThrow().authData)
+    }
+
+    private class FakeApiService : ApiService {
+        var loginBody: String? = null
+            private set
+        var authorization: String? = null
+            private set
+
+        override suspend fun ping(): ResponseBody {
+            error("Not needed in this test")
+        }
+
+        override suspend fun fetchItems(): ResponseBody {
+            error("Not needed in this test")
+        }
+
+        override suspend fun submitItem(
+            title: String,
+            description: String
+        ): ResponseBody {
+            error("Not needed in this test")
+        }
+
+        override suspend fun login(body: RequestBody): ResponseBody {
+            val buffer = Buffer()
+            body.writeTo(buffer)
+            loginBody = buffer.readUtf8()
+            return """
+                {
+                  "code": 200,
+                  "message": "success",
+                  "data": {
+                    "accessToken": "access-token-3"
+                  }
+                }
+            """.trimIndent().toJsonResponseBody()
+        }
+
+        override suspend fun authTest(authorization: String): ResponseBody {
+            this.authorization = authorization
+            return """
+                {
+                  "code": 200,
+                  "message": "success",
+                  "data": 3
+                }
+            """.trimIndent().toJsonResponseBody()
+        }
+    }
+
+    private companion object {
+        val JsonContentType = "application/json; charset=utf-8".toMediaType()
+
+        fun String.toJsonResponseBody(): ResponseBody {
+            return toResponseBody(JsonContentType)
+        }
+    }
+}

@@ -1,6 +1,8 @@
 package com.filmo.ui.movie
 
 import androidx.lifecycle.ViewModel
+import com.filmo.service.AppRepository
+import com.filmo.service.MovieCatalogItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -9,12 +11,57 @@ import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 
 @HiltViewModel
-class RegisterMovieViewModel @Inject constructor() : ViewModel() {
+class RegisterMovieViewModel @Inject constructor(
+    private val appRepository: AppRepository
+) : ViewModel() {
     private val _uiState = MutableStateFlow(RegisterMovieUiState())
     val uiState: StateFlow<RegisterMovieUiState> = _uiState.asStateFlow()
 
+    suspend fun loadMovieCatalog() {
+        if (_uiState.value.isMovieCatalogLoading) return
+
+        _uiState.update {
+            it.copy(
+                isMovieCatalogLoading = true,
+                errorMessage = null
+            )
+        }
+
+        val result = appRepository.fetchMovieCatalog()
+        _uiState.update { state ->
+            result.fold(
+                onSuccess = { movies ->
+                    state.copy(
+                        movies = movies,
+                        isMovieCatalogLoading = false,
+                        errorMessage = null
+                    )
+                },
+                onFailure = {
+                    state.copy(
+                        isMovieCatalogLoading = false,
+                        errorMessage = "영화 목록을 불러오지 못했어요. 다시 시도해 주세요."
+                    )
+                }
+            )
+        }
+    }
+
     fun updateSearchQuery(query: String) {
         _uiState.update { it.copy(searchQuery = query, errorMessage = null) }
+    }
+
+    fun selectMovie(movie: MovieCatalogItem) {
+        _uiState.update {
+            it.copy(
+                step = RegisterMovieStep.MovieInfo,
+                selectedMovie = movie,
+                title = movie.title,
+                genre = movie.genre,
+                director = movie.director,
+                errorMessage = null
+            )
+        }
     }
 
     fun applySearchResult(
@@ -73,6 +120,23 @@ class RegisterMovieViewModel @Inject constructor() : ViewModel() {
         _uiState.update { it.copy(cast = cast, errorMessage = null) }
     }
 
+    fun updateTheaterName(theaterName: String) {
+        _uiState.update { it.copy(theaterName = theaterName, errorMessage = null) }
+    }
+
+    fun updateRating(rating: Int) {
+        _uiState.update {
+            it.copy(
+                rating = rating.coerceIn(MIN_RATING, MAX_RATING),
+                errorMessage = null
+            )
+        }
+    }
+
+    fun updateReview(review: String) {
+        _uiState.update { it.copy(review = review, errorMessage = null) }
+    }
+
     fun selectTicketTemplate(template: TicketTemplateOption) {
         _uiState.update {
             it.copy(
@@ -85,12 +149,7 @@ class RegisterMovieViewModel @Inject constructor() : ViewModel() {
     fun goToNextStep(nowMillis: Long = System.currentTimeMillis()) {
         when (_uiState.value.step) {
             RegisterMovieStep.MovieSearch -> {
-                _uiState.update {
-                    it.copy(
-                        step = RegisterMovieStep.MovieInfo,
-                        errorMessage = null
-                    )
-                }
+                _uiState.update { it.copy(errorMessage = "영화를 선택해 주세요.") }
             }
 
             RegisterMovieStep.MovieInfo -> moveToTicketTemplateIfValid()
@@ -147,13 +206,15 @@ class RegisterMovieViewModel @Inject constructor() : ViewModel() {
 
     private fun moveToTicketTemplateIfValid() {
         val state = _uiState.value
-        val missingRequiredInfo = state.title.isBlank() ||
+        val missingRequiredInfo = state.selectedMovie == null ||
+            state.theaterName.isBlank() ||
             state.releaseDateMillis == null ||
-            state.genre.isBlank()
+            state.rating == null ||
+            state.review.isBlank()
 
         if (missingRequiredInfo) {
             _uiState.update {
-                it.copy(errorMessage = "영화 제목, 관람 날짜, 장르를 입력해 주세요.")
+                it.copy(errorMessage = "영화관, 관람일, 별점, 관람 후기를 입력해 주세요.")
             }
             return
         }
@@ -188,11 +249,17 @@ class RegisterMovieViewModel @Inject constructor() : ViewModel() {
 data class RegisterMovieUiState(
     val step: RegisterMovieStep = RegisterMovieStep.MovieSearch,
     val searchQuery: String = "",
+    val movies: List<MovieCatalogItem> = emptyList(),
+    val isMovieCatalogLoading: Boolean = false,
+    val selectedMovie: MovieCatalogItem? = null,
     val title: String = "",
     val releaseDateMillis: Long? = null,
     val genre: String = "",
     val director: String = "",
     val cast: String = "",
+    val theaterName: String = "",
+    val rating: Int? = null,
+    val review: String = "",
     val selectedTicketTemplate: TicketTemplateOption? = null,
     val publishingStatus: PublishingStatus = PublishingStatus.Idle,
     val publishStartedAtMillis: Long? = null,
@@ -201,6 +268,17 @@ data class RegisterMovieUiState(
 ) {
     val isPublishComplete: Boolean
         get() = publishingStatus == PublishingStatus.Complete
+
+    val filteredMovies: List<MovieCatalogItem>
+        get() {
+            val trimmedQuery = searchQuery.trim()
+            if (trimmedQuery.isEmpty()) return movies
+
+            return movies.filter { movie ->
+                movie.title.contains(trimmedQuery, ignoreCase = true) ||
+                    movie.director.contains(trimmedQuery, ignoreCase = true)
+            }
+        }
 }
 
 enum class RegisterMovieStep {
@@ -239,6 +317,8 @@ enum class PublishingStatus {
 }
 
 internal const val TicketPublishingDurationMillis = 2_000L
+private const val MIN_RATING = 1
+private const val MAX_RATING = 5
 
 internal fun publishingProgressPercent(startedAtMillis: Long?, nowMillis: Long): Int {
     if (startedAtMillis == null) return 0

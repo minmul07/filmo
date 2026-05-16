@@ -17,5 +17,11 @@ sealed interface ScreenDestination : NavKey {
     data object Collection : ScreenDestination
 
     @Serializable
+    data class CollectionDetail(val ticketId: String) : ScreenDestination
+
+    @Serializable
+    data class CollectionEdit(val ticketId: String) : ScreenDestination
+
+    @Serializable
     data object Profile: ScreenDestination
 }

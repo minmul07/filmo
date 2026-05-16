@@ -36,10 +36,12 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.filmo.ui.ScreenDestination
+import com.filmo.ui.collection.CollectionDetailScreen
+import com.filmo.ui.collection.CollectionEditScreen
 import com.filmo.ui.collection.CollectionScreen
 import com.filmo.ui.feed.FeedScreen
 import com.filmo.ui.movie.RegisterMovieScreen
-import com.filmo.ui.profile.ProfileScreen
+import com.filmo.ui.profile.ProfileRoute
 import com.filmo.ui.theater.TheaterFinderScreen
 
 @Composable
@@ -60,6 +62,8 @@ fun MainScreen(
         }
     }
     val isRecordDestination = currentDestination == ScreenDestination.Record
+    val isCollectionSubDestination = currentDestination is ScreenDestination.CollectionDetail ||
+        currentDestination is ScreenDestination.CollectionEdit
     val layoutDirection = LocalLayoutDirection.current
 
     Scaffold(
@@ -67,12 +71,12 @@ fun MainScreen(
         bottomBar = {
             FilmoBottomBar(
                 currentDestination = currentDestination,
-                hidden = isRecordDestination,
+                hidden = isRecordDestination || isCollectionSubDestination,
                 onDestinationClick = navigateToTopLevelDestination
             )
         }
     ) { innerPadding ->
-        val contentPadding = if (isRecordDestination) {
+        val contentPadding = if (isRecordDestination || isCollectionSubDestination) {
             PaddingValues(
                 start = innerPadding.calculateStartPadding(layoutDirection),
                 top = innerPadding.calculateTopPadding(),
@@ -112,11 +116,37 @@ fun MainScreen(
                 }
 
                 entry<ScreenDestination.Collection> {
-                    CollectionScreen()
+                    CollectionScreen(
+                        onTicketClick = { ticketId ->
+                            backStack.add(ScreenDestination.CollectionDetail(ticketId))
+                        },
+                        onEditTicket = { ticketId ->
+                            backStack.add(ScreenDestination.CollectionEdit(ticketId))
+                        }
+                    )
+                }
+
+                entry<ScreenDestination.CollectionDetail> {
+                    CollectionDetailScreen(
+                        ticketId = it.ticketId,
+                        onBack = navigateBack,
+                        onEditTicket = { ticketId ->
+                            backStack.add(ScreenDestination.CollectionEdit(ticketId))
+                        },
+                        onDeleted = { navigateToTopLevelDestination(ScreenDestination.Collection) }
+                    )
+                }
+
+                entry<ScreenDestination.CollectionEdit> {
+                    CollectionEditScreen(
+                        ticketId = it.ticketId,
+                        onBack = navigateBack,
+                        onSaved = { navigateToTopLevelDestination(ScreenDestination.Collection) }
+                    )
                 }
 
                 entry<ScreenDestination.Profile> {
-                    ProfileScreen()
+                    ProfileRoute()
                 }
             }
         )

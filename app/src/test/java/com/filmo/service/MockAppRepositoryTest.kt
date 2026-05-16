@@ -1,6 +1,7 @@
 package com.filmo.service
 
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -27,6 +28,22 @@ class MockAppRepositoryTest {
 
         assertTrue(result.isSuccess)
         assertTrue(result.getOrThrow().isNotEmpty())
+        assertTrue(elapsedMillis >= 250)
+    }
+
+    @Test
+    fun fetchMovieCatalogReturnsFourIndependentFilmsAfterMockDelay() = runBlocking {
+        val repository = MockAppRepository()
+
+        val startedAt = System.currentTimeMillis()
+        val result = repository.fetchMovieCatalog()
+        val elapsedMillis = System.currentTimeMillis() - startedAt
+
+        assertTrue(result.isSuccess)
+        assertEquals(
+            listOf("헤어질 결심", "윤희에게", "벌새", "소공녀"),
+            result.getOrThrow().map { it.title }
+        )
         assertTrue(elapsedMillis >= 250)
     }
 

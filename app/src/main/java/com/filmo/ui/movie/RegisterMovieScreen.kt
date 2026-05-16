@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -57,6 +58,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,8 +72,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.filmo.service.MovieCatalogItem
 import com.filmo.ui.theme.FilmoTheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -85,6 +89,11 @@ fun RegisterMovieScreen(
     onNavigateToCollection: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(viewModel) {
+        viewModel.loadMovieCatalog()
+    }
 
     BackHandler {
         val handledByStep = viewModel.goBack()
@@ -97,11 +106,16 @@ fun RegisterMovieScreen(
         uiState = uiState,
         modifier = modifier,
         onSearchQueryChange = viewModel::updateSearchQuery,
-        onTitleChange = viewModel::updateTitle,
+        onLoadMovies = {
+            coroutineScope.launch {
+                viewModel.loadMovieCatalog()
+            }
+        },
+        onMovieClick = viewModel::selectMovie,
+        onTheaterNameChange = viewModel::updateTheaterName,
         onReleaseDateChange = viewModel::updateReleaseDateMillis,
-        onGenreChange = viewModel::updateGenre,
-        onDirectorChange = viewModel::updateDirector,
-        onCastChange = viewModel::updateCast,
+        onRatingChange = viewModel::updateRating,
+        onReviewChange = viewModel::updateReview,
         onTemplateClick = viewModel::selectTicketTemplate,
         onNext = viewModel::goToNextStep,
         onBack = {
@@ -124,11 +138,12 @@ private fun RegisterMovieContent(
     uiState: RegisterMovieUiState,
     modifier: Modifier = Modifier,
     onSearchQueryChange: (String) -> Unit = {},
-    onTitleChange: (String) -> Unit = {},
+    onLoadMovies: () -> Unit = {},
+    onMovieClick: (MovieCatalogItem) -> Unit = {},
+    onTheaterNameChange: (String) -> Unit = {},
     onReleaseDateChange: (Long?) -> Unit = {},
-    onGenreChange: (String) -> Unit = {},
-    onDirectorChange: (String) -> Unit = {},
-    onCastChange: (String) -> Unit = {},
+    onRatingChange: (Int) -> Unit = {},
+    onReviewChange: (String) -> Unit = {},
     onTemplateClick: (TicketTemplateOption) -> Unit = {},
     onNext: () -> Unit = {},
     onBack: () -> Unit = {},
@@ -163,19 +178,21 @@ private fun RegisterMovieContent(
             when (uiState.step) {
                 RegisterMovieStep.MovieSearch -> MovieSearchStep(
                     query = uiState.searchQuery,
+                    movies = uiState.filteredMovies,
+                    isLoading = uiState.isMovieCatalogLoading,
                     errorMessage = uiState.errorMessage,
                     onQueryChange = onSearchQueryChange,
-                    onNext = onNext
+                    onMovieClick = onMovieClick,
+                    onRetryClick = onLoadMovies
                 )
 
                 RegisterMovieStep.MovieInfo -> MovieInfoStep(
                     uiState = uiState,
                     errorMessage = uiState.errorMessage,
-                    onTitleChange = onTitleChange,
+                    onTheaterNameChange = onTheaterNameChange,
                     onReleaseDateClick = { isDatePickerOpen = true },
-                    onGenreChange = onGenreChange,
-                    onDirectorChange = onDirectorChange,
-                    onCastChange = onCastChange,
+                    onRatingChange = onRatingChange,
+                    onReviewChange = onReviewChange,
                     onNext = onNext
                 )
 
@@ -272,26 +289,22 @@ private fun RegisterMovieHeader(
 @Composable
 private fun MovieSearchStep(
     query: String,
+    movies: List<MovieCatalogItem>,
+    isLoading: Boolean,
     errorMessage: String?,
     onQueryChange: (String) -> Unit,
-    onNext: () -> Unit
+    onMovieClick: (MovieCatalogItem) -> Unit,
+    onRetryClick: () -> Unit
 ) {
     StepContent(
-        action = {
-            Button(
-                onClick = onNext,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("다음")
-            }
-        }
+        action = {}
     ) {
         Text(
             text = "영화 검색",
             style = MaterialTheme.typography.headlineSmall
         )
         Text(
-            text = "백엔드 검색 API가 연결되면 선택한 영화의 제목, 장르, 감독, 출연 정보가 자동으로 입력됩니다.",
+            text = "관람한 영화를 검색하세요",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -305,14 +318,81 @@ private fun MovieSearchStep(
                     contentDescription = null
                 )
             },
-            label = { Text("영화 제목 검색") },
+            label = { Text("영화 제목으로 검색") },
             singleLine = true
         )
-        PlaceholderPanel(
-            title = "검색 결과 준비 중",
-            body = "TODO: 영화 검색 API 연결 후 결과 리스트를 표시합니다."
-        )
-        ErrorText(errorMessage = errorMessage)
+        when {
+            isLoading -> {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+
+            errorMessage != null && movies.isEmpty() -> {
+                PlaceholderPanel(
+                    title = "영화 목록을 불러오지 못했어요",
+                    body = "잠시 후 다시 시도해 주세요."
+                )
+                OutlinedButton(
+                    onClick = onRetryClick,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("다시 시도")
+                }
+            }
+
+            movies.isEmpty() -> {
+                PlaceholderPanel(
+                    title = "검색 결과가 없어요",
+                    body = "다른 제목이나 감독명으로 검색해 주세요."
+                )
+            }
+
+            else -> {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    movies.forEach { movie ->
+                        MovieResultCard(
+                            movie = movie,
+                            onClick = { onMovieClick(movie) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MovieResultCard(
+    movie: MovieCatalogItem,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .semantics { role = Role.Button },
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = movie.title,
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "${movie.releaseYear}  •  ${movie.director}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -320,11 +400,10 @@ private fun MovieSearchStep(
 private fun MovieInfoStep(
     uiState: RegisterMovieUiState,
     errorMessage: String?,
-    onTitleChange: (String) -> Unit,
+    onTheaterNameChange: (String) -> Unit,
     onReleaseDateClick: () -> Unit,
-    onGenreChange: (String) -> Unit,
-    onDirectorChange: (String) -> Unit,
-    onCastChange: (String) -> Unit,
+    onRatingChange: (Int) -> Unit,
+    onReviewChange: (String) -> Unit,
     onNext: () -> Unit
 ) {
     StepContent(
@@ -338,21 +417,33 @@ private fun MovieInfoStep(
         }
     ) {
         Text(
-            text = "영화 정보 입력",
+            text = "관람 정보 입력",
             style = MaterialTheme.typography.headlineSmall
         )
+        Text(
+            text = uiState.title,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = uiState.selectedMovie?.let { "${it.releaseYear}  •  ${it.director}" }.orEmpty(),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         OutlinedTextField(
-            value = uiState.title,
-            onValueChange = onTitleChange,
+            value = uiState.theaterName,
+            onValueChange = onTheaterNameChange,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("영화 제목 *") },
+            label = { Text("영화관 *") },
+            placeholder = { Text("영화관 이름") },
             singleLine = true
         )
         OutlinedTextField(
             value = uiState.releaseDateMillis.toDateText(),
             onValueChange = {},
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("관람 날짜 *") },
+            label = { Text("관람일 *") },
+            placeholder = { Text("연도-월-일") },
             readOnly = true,
             singleLine = true,
             supportingText = { Text("미래 날짜는 선택할 수 없어요.") }
@@ -363,28 +454,53 @@ private fun MovieInfoStep(
         ) {
             Text("날짜 선택")
         }
-        OutlinedTextField(
-            value = uiState.genre,
-            onValueChange = onGenreChange,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("장르 *") },
-            singleLine = true
+        Text(
+            text = "별점 *",
+            style = MaterialTheme.typography.titleMedium
+        )
+        RatingSelector(
+            rating = uiState.rating,
+            onRatingChange = onRatingChange
         )
         OutlinedTextField(
-            value = uiState.director,
-            onValueChange = onDirectorChange,
+            value = uiState.review,
+            onValueChange = onReviewChange,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("감독") },
-            singleLine = true
-        )
-        OutlinedTextField(
-            value = uiState.cast,
-            onValueChange = onCastChange,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("출연") },
-            minLines = 2
+            label = { Text("관람 후기 *") },
+            placeholder = { Text("영화에 대한 감상을 자유롭게 작성하세요...") },
+            minLines = 5
         )
         ErrorText(errorMessage = errorMessage)
+    }
+}
+
+@Composable
+private fun RatingSelector(
+    rating: Int?,
+    onRatingChange: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        (1..5).forEach { score ->
+            val selected = rating != null && score <= rating
+            OutlinedButton(
+                onClick = { onRatingChange(score) },
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Star,
+                    contentDescription = "$score 점",
+                    tint = if (selected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.outline
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -698,7 +814,17 @@ private fun TicketPreview(
                     color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
                 Text(
-                    text = uiState.releaseDateMillis.toDateText().ifBlank { "관람 날짜" },
+                    text = uiState.releaseDateMillis.toDateText().ifBlank { "관람일" },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                Text(
+                    text = uiState.theaterName.ifBlank { "영화관" },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                Text(
+                    text = uiState.rating?.let { "별점 $it/5" }.orEmpty(),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
@@ -801,7 +927,7 @@ private fun rememberPastOrTodaySelectableDates(): SelectableDates {
 private val RegisterMovieStep.title: String
     get() = when (this) {
         RegisterMovieStep.MovieSearch -> "영화 검색"
-        RegisterMovieStep.MovieInfo -> "영화 정보 입력"
+        RegisterMovieStep.MovieInfo -> "관람 정보 입력"
         RegisterMovieStep.TicketTemplate -> "티켓 사진 선택"
         RegisterMovieStep.Publishing -> "티켓 발행"
     }
@@ -830,11 +956,13 @@ private fun RegisterMovieContentPreview() {
         RegisterMovieContent(
             uiState = RegisterMovieUiState(
                 step = RegisterMovieStep.MovieInfo,
-                title = "괴물",
+                title = "윤희에게",
                 releaseDateMillis = 1_609_459_200_000L,
                 genre = "드라마",
-                director = "봉준호",
-                cast = "송강호, 변희봉"
+                director = "임대형",
+                theaterName = "아트나인",
+                rating = 5,
+                review = "겨울 공기와 편지의 여운이 좋았다."
             )
         )
     }

@@ -6,11 +6,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -22,15 +24,20 @@ import androidx.compose.material.icons.outlined.ConfirmationNumber
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -39,10 +46,39 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.filmo.BuildConfig
 import com.filmo.ui.theme.FilmoTheme
+import kotlinx.coroutines.launch
+
+@Composable
+fun ProfileRoute(
+    modifier: Modifier = Modifier
+) {
+    if (BuildConfig.DEBUG) {
+        val viewModel: ProfileDebugAuthViewModel = hiltViewModel()
+        val debugAuthState by viewModel.uiState.collectAsStateWithLifecycle()
+        val coroutineScope = rememberCoroutineScope()
+
+        ProfileScreen(
+            modifier = modifier,
+            debugAuthState = debugAuthState,
+            onRunDebugAuthTest = { credential ->
+                coroutineScope.launch {
+                    viewModel.runAuthTest(credential)
+                }
+            }
+        )
+    } else {
+        ProfileScreen(modifier = modifier)
+    }
+}
 
 @Composable
 fun ProfileScreen(
+    debugAuthState: ProfileDebugAuthUiState = ProfileDebugAuthUiState(),
+    onRunDebugAuthTest: (DebugAuthTestCredential) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val profile = MockProfile
@@ -69,7 +105,101 @@ fun ProfileScreen(
                 ProfileHeader()
                 ProfileSummaryCard(profile = profile)
                 ActivitySummaryCard(activityItems = profile.activityItems)
+                if (BuildConfig.DEBUG) {
+                    DebugAuthTestCard(
+                        uiState = debugAuthState,
+                        onRunAuthTest = onRunDebugAuthTest
+                    )
+                    Button(
+                        onClick = {},
+
+                    ){
+                        Text(text = "영화 DB 캐시 초기화")
+                    }
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun DebugAuthTestCard(
+    uiState: ProfileDebugAuthUiState,
+    onRunAuthTest: (DebugAuthTestCredential) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                text = "Auth API 테스트",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            DebugAuthTestCredentials.forEach { credential ->
+                DebugAuthTestRow(
+                    credential = credential,
+                    requestState = uiState.requestStates[credential.loginId]
+                        ?: DebugAuthTestRequestState.Idle,
+                    onRunAuthTest = onRunAuthTest
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DebugAuthTestRow(
+    credential: DebugAuthTestCredential,
+    requestState: DebugAuthTestRequestState,
+    onRunAuthTest: (DebugAuthTestCredential) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        OutlinedButton(
+            onClick = { onRunAuthTest(credential) },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = requestState !is DebugAuthTestRequestState.Loading
+        ) {
+            if (requestState is DebugAuthTestRequestState.Loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            Text("${credential.loginId} auth-test 요청")
+        }
+
+        when (requestState) {
+            DebugAuthTestRequestState.Idle,
+            DebugAuthTestRequestState.Loading -> Unit
+
+            is DebugAuthTestRequestState.Success -> Text(
+                text = requestState.message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            is DebugAuthTestRequestState.Error -> Text(
+                text = requestState.message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error
+            )
         }
     }
 }
@@ -192,7 +322,7 @@ private fun ProfileAvatar(
             Icon(
                 imageVector = Icons.Outlined.Person,
                 contentDescription = null,
-                modifier = Modifier.size(38.dp),
+                modifier = Modifier.size(24.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }

@@ -1,5 +1,13 @@
 package com.filmo.ui.movie
 
+import com.filmo.service.AppRepository
+import com.filmo.service.MovieCatalogItem
+import com.filmo.service.MovieTicket
+import com.filmo.service.SampleItem
+import com.filmo.service.SampleItemRequest
+import com.filmo.service.TicketCollection
+import com.filmo.service.UpdateTicketRequest
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -7,45 +15,70 @@ import org.junit.Test
 
 class RegisterMovieViewModelTest {
     @Test
-    fun updateFieldsReflectsMovieInputState() {
-        val viewModel = RegisterMovieViewModel()
+    fun loadMovieCatalogStoresRepositoryMovies() = runBlocking {
+        val viewModel = RegisterMovieViewModel(FakeAppRepository())
 
-        viewModel.updateTitle("괴물")
-        viewModel.updateReleaseDateMillis(1_609_459_200_000L)
-        viewModel.updateGenre("드라마")
-        viewModel.updateDirector("봉준호")
-        viewModel.updateCast("송강호, 변희봉")
+        viewModel.loadMovieCatalog()
 
         val state = viewModel.uiState.value
-        assertEquals("괴물", state.title)
-        assertEquals(1_609_459_200_000L, state.releaseDateMillis)
-        assertEquals("드라마", state.genre)
-        assertEquals("봉준호", state.director)
-        assertEquals("송강호, 변희봉", state.cast)
+        assertEquals(listOf("헤어질 결심", "윤희에게", "벌새", "소공녀"), state.movies.map { it.title })
+        assertEquals(false, state.isMovieCatalogLoading)
+        assertEquals(null, state.errorMessage)
     }
 
     @Test
-    fun nextFromInfoInputRequiresTitleDateAndGenre() {
-        val viewModel = RegisterMovieViewModel()
+    fun selectingMovieMovesToViewingInfoStepAndStoresMovie() {
+        val viewModel = RegisterMovieViewModel(FakeAppRepository())
 
-        viewModel.goToNextStep()
+        viewModel.selectMovie(FakeMovies.first())
+
+        val state = viewModel.uiState.value
+        assertEquals(RegisterMovieStep.MovieInfo, state.step)
+        assertEquals("헤어질 결심", state.title)
+        assertEquals("박찬욱", state.director)
+        assertEquals("로맨스/드라마", state.genre)
+    }
+
+    @Test
+    fun updateFieldsReflectsViewingInputState() {
+        val viewModel = RegisterMovieViewModel(FakeAppRepository())
+
+        viewModel.selectMovie(FakeMovies.first())
+        viewModel.updateTheaterName("아트나인")
+        viewModel.updateReleaseDateMillis(1_609_459_200_000L)
+        viewModel.updateRating(5)
+        viewModel.updateReview("영화의 여운이 길게 남았다.")
+
+        val state = viewModel.uiState.value
+        assertEquals("아트나인", state.theaterName)
+        assertEquals(1_609_459_200_000L, state.releaseDateMillis)
+        assertEquals(5, state.rating)
+        assertEquals("영화의 여운이 길게 남았다.", state.review)
+    }
+
+    @Test
+    fun nextFromInfoInputRequiresViewingInfo() {
+        val viewModel = RegisterMovieViewModel(FakeAppRepository())
+
+        viewModel.selectMovie(FakeMovies.first())
         viewModel.goToNextStep()
 
         assertEquals(RegisterMovieStep.MovieInfo, viewModel.uiState.value.step)
-        assertEquals("영화 제목, 관람 날짜, 장르를 입력해 주세요.", viewModel.uiState.value.errorMessage)
+        assertEquals("영화관, 관람일, 별점, 관람 후기를 입력해 주세요.", viewModel.uiState.value.errorMessage)
     }
 
     @Test
-    fun directorAndCastAreOptionalForTicketTemplateStep() {
-        val viewModel = RegisterMovieViewModel()
+    fun viewingInfoIsRequiredForTicketTemplateStep() {
+        val viewModel = RegisterMovieViewModel(FakeAppRepository())
 
-        viewModel.updateTitle("괴물")
+        viewModel.selectMovie(FakeMovies.first())
+        viewModel.updateTheaterName("아트나인")
         viewModel.updateReleaseDateMillis(
             releaseDateMillis = 1_609_459_200_000L,
             nowMillis = 1_609_545_600_000L
         )
-        viewModel.updateGenre("드라마")
-        viewModel.goToNextStep()
+        viewModel.updateRating(4)
+        viewModel.updateReview("다시 곱씹게 되는 영화.")
         viewModel.goToNextStep()
 
         assertEquals(RegisterMovieStep.TicketTemplate, viewModel.uiState.value.step)
@@ -54,7 +87,7 @@ class RegisterMovieViewModelTest {
 
     @Test
     fun futureReleaseDateIsRejected() {
-        val viewModel = RegisterMovieViewModel()
+        val viewModel = RegisterMovieViewModel(FakeAppRepository())
 
         viewModel.updateReleaseDateMillis(
             releaseDateMillis = 1_609_545_600_000L,
@@ -67,15 +100,16 @@ class RegisterMovieViewModelTest {
 
     @Test
     fun publishRequiresTemplateSelection() {
-        val viewModel = RegisterMovieViewModel()
+        val viewModel = RegisterMovieViewModel(FakeAppRepository())
 
-        viewModel.updateTitle("괴물")
+        viewModel.selectMovie(FakeMovies.first())
+        viewModel.updateTheaterName("아트나인")
         viewModel.updateReleaseDateMillis(
             releaseDateMillis = 1_609_459_200_000L,
             nowMillis = 1_609_545_600_000L
         )
-        viewModel.updateGenre("드라마")
-        viewModel.goToNextStep()
+        viewModel.updateRating(5)
+        viewModel.updateReview("좋았다.")
         viewModel.goToNextStep()
         viewModel.goToNextStep(nowMillis = 1_609_545_600_000L)
 
@@ -85,13 +119,14 @@ class RegisterMovieViewModelTest {
 
     @Test
     fun selectingTemplateAndPublishingStoresStartTime() {
-        val viewModel = RegisterMovieViewModel()
+        val viewModel = RegisterMovieViewModel(FakeAppRepository())
         val now = 1_609_545_600_000L
 
-        viewModel.updateTitle("괴물")
+        viewModel.selectMovie(FakeMovies.first())
+        viewModel.updateTheaterName("아트나인")
         viewModel.updateReleaseDateMillis(1_609_459_200_000L, nowMillis = now)
-        viewModel.updateGenre("드라마")
-        viewModel.goToNextStep()
+        viewModel.updateRating(5)
+        viewModel.updateReview("좋았다.")
         viewModel.goToNextStep()
         viewModel.selectTicketTemplate(TicketTemplateOption.Classic)
         viewModel.goToNextStep(nowMillis = now)
@@ -115,13 +150,14 @@ class RegisterMovieViewModelTest {
 
     @Test
     fun markPublishingCompleteSetsCompleteStatus() {
-        val viewModel = RegisterMovieViewModel()
+        val viewModel = RegisterMovieViewModel(FakeAppRepository())
         val now = 1_609_545_600_000L
 
-        viewModel.updateTitle("괴물")
+        viewModel.selectMovie(FakeMovies.first())
+        viewModel.updateTheaterName("아트나인")
         viewModel.updateReleaseDateMillis(1_609_459_200_000L, nowMillis = now)
-        viewModel.updateGenre("드라마")
-        viewModel.goToNextStep()
+        viewModel.updateRating(5)
+        viewModel.updateReview("좋았다.")
         viewModel.goToNextStep()
         viewModel.selectTicketTemplate(TicketTemplateOption.Poster)
         viewModel.goToNextStep(nowMillis = now)
@@ -135,7 +171,7 @@ class RegisterMovieViewModelTest {
 
     @Test
     fun resetReturnsToInitialSearchStep() {
-        val viewModel = RegisterMovieViewModel()
+        val viewModel = RegisterMovieViewModel(FakeAppRepository())
 
         viewModel.updateSearchQuery("괴물")
         viewModel.updateTitle("괴물")
@@ -143,5 +179,50 @@ class RegisterMovieViewModelTest {
         viewModel.reset()
 
         assertEquals(RegisterMovieUiState(), viewModel.uiState.value)
+    }
+
+    private class FakeAppRepository : AppRepository {
+        override suspend fun ping(): Result<String> = Result.success("pong")
+
+        override suspend fun fetchItems(): Result<List<SampleItem>> = Result.success(emptyList())
+
+        override suspend fun submitItem(request: SampleItemRequest): Result<SampleItem> {
+            return Result.success(
+                SampleItem(
+                    id = "created",
+                    title = request.title,
+                    description = request.description
+                )
+            )
+        }
+
+        override suspend fun fetchMovieCatalog(): Result<List<MovieCatalogItem>> {
+            return Result.success(FakeMovies)
+        }
+
+        override suspend fun fetchTicketCollection(): Result<TicketCollection> {
+            return Result.success(TicketCollection(emptyList(), emptyList()))
+        }
+
+        override suspend fun updateMyTicket(request: UpdateTicketRequest): Result<MovieTicket> {
+            return Result.failure(UnsupportedOperationException("Not needed in this test"))
+        }
+
+        override suspend fun deleteMyTicket(ticketId: String): Result<Unit> {
+            return Result.success(Unit)
+        }
+
+        override suspend fun removeSavedTicket(ticketId: String): Result<Unit> {
+            return Result.success(Unit)
+        }
+    }
+
+    private companion object {
+        val FakeMovies = listOf(
+            MovieCatalogItem("movie-1", "헤어질 결심", 2022, "박찬욱", "로맨스/드라마"),
+            MovieCatalogItem("movie-2", "윤희에게", 2019, "임대형", "드라마"),
+            MovieCatalogItem("movie-3", "벌새", 2018, "김보라", "드라마"),
+            MovieCatalogItem("movie-4", "소공녀", 2017, "전고운", "드라마")
+        )
     }
 }
