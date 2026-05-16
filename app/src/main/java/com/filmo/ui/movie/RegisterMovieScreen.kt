@@ -118,7 +118,7 @@ private fun RegisterMovieContent(
                 )
                 MovieSearchStep(
                     query = uiState.searchQuery,
-                    movies = uiState.filteredMovies,
+                    movies = uiState.movies,
                     isLoading = uiState.isMovieCatalogLoading,
                     isAppending = uiState.isMovieCatalogAppendLoading,
                     canLoadMore = uiState.canLoadMoreMovies,

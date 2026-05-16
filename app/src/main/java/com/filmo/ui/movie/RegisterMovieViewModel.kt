@@ -8,6 +8,8 @@ import com.filmo.service.MovieCatalogItem
 import com.filmo.service.MovieDetail
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,6 +28,7 @@ class RegisterMovieViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(RegisterMovieUiState())
     val uiState: StateFlow<RegisterMovieUiState> = _uiState.asStateFlow()
     private var movieCatalogLoadGeneration = 0
+    private var searchJob: Job? = null
 
     suspend fun loadMovieCatalogIfNeeded() {
         val state = _uiState.value
@@ -48,9 +51,19 @@ class RegisterMovieViewModel @Inject constructor(
             return
         }
 
-        val loadGeneration = movieCatalogLoadGeneration
+        loadInitialMovieCatalogPage(
+            keyword = _uiState.value.searchKeywordOrNull(),
+            loadGeneration = movieCatalogLoadGeneration
+        )
+    }
+
+    private suspend fun loadInitialMovieCatalogPage(
+        keyword: String?,
+        loadGeneration: Int
+    ) {
         Timber.d(
-            "RegisterMovieViewModel.loadMovieCatalog request page=%d size=%d",
+            "RegisterMovieViewModel.loadMovieCatalog request keywordBlank=%s page=%d size=%d",
+            keyword.isNullOrBlank(),
             InitialMovieCatalogPage,
             MovieCatalogPageSize
         )
@@ -62,6 +75,7 @@ class RegisterMovieViewModel @Inject constructor(
         }
 
         val result = appRepository.fetchMovieCatalogPage(
+            keyword = keyword,
             page = InitialMovieCatalogPage,
             size = MovieCatalogPageSize
         )
@@ -122,8 +136,11 @@ class RegisterMovieViewModel @Inject constructor(
         }
 
         val nextPage = currentState.movieCatalogPage + 1
+        val keyword = currentState.searchKeywordOrNull()
+        val loadGeneration = movieCatalogLoadGeneration
         Timber.d(
-            "RegisterMovieViewModel.loadNextMovieCatalogPage request page=%d size=%d",
+            "RegisterMovieViewModel.loadNextMovieCatalogPage request keywordBlank=%s page=%d size=%d",
+            keyword.isNullOrBlank(),
             nextPage,
             MovieCatalogPageSize
         )
@@ -135,6 +152,7 @@ class RegisterMovieViewModel @Inject constructor(
         }
 
         val result = appRepository.fetchMovieCatalogPage(
+            keyword = keyword,
             page = nextPage,
             size = MovieCatalogPageSize
         )
@@ -149,8 +167,13 @@ class RegisterMovieViewModel @Inject constructor(
             }
             .onFailure {
                 Timber.w(it, "RegisterMovieViewModel.loadNextMovieCatalogPage failed page=%d", nextPage)
-            }
+        }
         _uiState.update { state ->
+            if (loadGeneration != movieCatalogLoadGeneration) {
+                Timber.d("RegisterMovieViewModel.loadNextMovieCatalogPage ignored stale result")
+                return@update state
+            }
+
             result.fold(
                 onSuccess = { page ->
                     state.copy(
@@ -178,6 +201,16 @@ class RegisterMovieViewModel @Inject constructor(
             query.isBlank()
         )
         _uiState.update { it.copy(searchQuery = query, errorMessage = null) }
+        movieCatalogLoadGeneration += 1
+        val searchGeneration = movieCatalogLoadGeneration
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch(Dispatchers.IO) {
+            delay(SearchDebounceMillis)
+            loadInitialMovieCatalogPage(
+                keyword = query.trim().takeIf { it.isNotEmpty() },
+                loadGeneration = searchGeneration
+            )
+        }
     }
 
     fun selectMovie(movie: MovieCatalogItem) {
@@ -433,6 +466,8 @@ class RegisterMovieViewModel @Inject constructor(
 
     fun reset() {
         Timber.d("RegisterMovieViewModel.reset")
+        searchJob?.cancel()
+        searchJob = null
         movieCatalogLoadGeneration += 1
         _uiState.value = RegisterMovieUiState()
     }
@@ -489,17 +524,10 @@ data class RegisterMovieUiState(
     val rating: Int? = null,
     val review: String = "",
     val errorMessage: String? = null
-) {
-    val filteredMovies: List<MovieCatalogItem>
-        get() {
-            val trimmedQuery = searchQuery.trim()
-            if (trimmedQuery.isEmpty()) return movies
+)
 
-            return movies.filter { movie ->
-                movie.title.contains(trimmedQuery, ignoreCase = true) ||
-                    movie.director.contains(trimmedQuery, ignoreCase = true)
-            }
-        }
+private fun RegisterMovieUiState.searchKeywordOrNull(): String? {
+    return searchQuery.trim().takeIf { it.isNotEmpty() }
 }
 
 private fun RegisterMovieUiState.toCreateTicketRequestOrNull(): CreateTicketRequest? {
@@ -525,6 +553,7 @@ enum class RegisterMovieStep {
 
 private const val InitialMovieCatalogPage = 0
 private const val MovieCatalogPageSize = 20
+private const val SearchDebounceMillis = 250L
 private const val MIN_RATING = 1
 private const val MAX_RATING = 5
 private const val MAX_REVIEW_LENGTH = 100

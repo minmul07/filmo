@@ -10,6 +10,7 @@ import com.filmo.service.TicketCollection
 import com.filmo.service.UpdateTicketRequest
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -122,6 +123,45 @@ class RegisterMovieViewModelTest {
 
         assertEquals(listOf(0), repository.requestedMoviePages)
         assertFalse(viewModel.uiState.value.canLoadMoreMovies)
+    }
+
+    @Test
+    fun updateSearchQueryRequestsServerSearchAfterDebounce() = runBlocking {
+        val repository = FakeAppRepository()
+        val viewModel = RegisterMovieViewModel(repository)
+
+        viewModel.updateSearchQuery("윤희")
+
+        assertEquals(emptyList<String?>(), repository.requestedMovieKeywords)
+
+        delay(300)
+
+        assertEquals(listOf("윤희"), repository.requestedMovieKeywords)
+        assertEquals(listOf(0), repository.requestedMoviePages)
+        assertEquals(listOf(20), repository.requestedMovieSizes)
+    }
+
+    @Test
+    fun loadNextMovieCatalogPageUsesCurrentSearchKeyword() = runBlocking {
+        val repository = FakeAppRepository(
+            moviePages = mapOf(
+                0 to FakeMovies.take(2),
+                1 to FakeMovies.drop(2)
+            ),
+            hasMoreByPage = mapOf(
+                0 to true,
+                1 to false
+            )
+        )
+        val viewModel = RegisterMovieViewModel(repository)
+
+        viewModel.loadMovieCatalog()
+        viewModel.updateSearchQuery("윤희")
+        delay(300)
+        viewModel.loadNextMovieCatalogPage()
+
+        assertEquals(listOf(null, "윤희", "윤희"), repository.requestedMovieKeywords)
+        assertEquals(listOf(0, 0, 1), repository.requestedMoviePages)
     }
 
     @Test
@@ -343,6 +383,7 @@ class RegisterMovieViewModelTest {
     ) : AppRepository {
         val requestedMoviePages = mutableListOf<Int>()
         val requestedMovieSizes = mutableListOf<Int>()
+        val requestedMovieKeywords = mutableListOf<String?>()
         val createdTicketRequests = mutableListOf<CreateTicketRequest>()
         val sharedTicketRequests = mutableListOf<Pair<String, Boolean>>()
 
@@ -353,6 +394,7 @@ class RegisterMovieViewModelTest {
             page: Int,
             size: Int
         ): Result<List<MovieCatalogItem>> {
+            requestedMovieKeywords += keyword
             requestedMoviePages += page
             requestedMovieSizes += size
             return Result.success(moviePages[page].orEmpty())
@@ -363,6 +405,7 @@ class RegisterMovieViewModelTest {
             page: Int,
             size: Int
         ): Result<MovieCatalogPage> {
+            requestedMovieKeywords += keyword
             requestedMoviePages += page
             requestedMovieSizes += size
             if (moviePageResults.isNotEmpty()) {
