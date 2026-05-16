@@ -128,7 +128,7 @@ private fun FilmoAppNavHost(
 
             entry<AppDestination.Main> {
                 MainScreen(
-                    startDestination = ScreenDestination.Feed
+                    startDestination = ScreenDestination.Collection
                 )
             }
         }

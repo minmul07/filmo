@@ -89,18 +89,6 @@ class RemoteAppRepository @Inject constructor(
         Timber.w(it, "RemoteAppRepository.fetchRandomNickname failed")
     }
 
-    override suspend fun fetchMyProfile(): Result<UserProfile> = runCatching {
-        Timber.d("RemoteAppRepository.fetchMyProfile request")
-        JsonParser.parseToJsonElement(apiService.fetchMe().string())
-            .jsonObject
-            .dataObject()
-            .toUserProfile()
-    }.onSuccess { profile ->
-        Timber.d("RemoteAppRepository.fetchMyProfile success profileId=%s", profile.id)
-    }.onFailure {
-        Timber.w(it, "RemoteAppRepository.fetchMyProfile failed")
-    }
-
     override suspend fun ping(): Result<String> = runCatching {
         Timber.d("RemoteAppRepository.ping request")
         apiService.ping().string()
@@ -214,84 +202,6 @@ class RemoteAppRepository @Inject constructor(
         Timber.d("RemoteAppRepository.fetchMovieDetail success movieId=%s detailId=%s", movieId, detail.id)
     }.onFailure {
         Timber.w(it, "RemoteAppRepository.fetchMovieDetail failed movieId=%s", movieId)
-    }
-
-    override suspend fun fetchTheaters(
-        keyword: String?,
-        page: Int,
-        size: Int
-    ): Result<List<Theater>> = fetchTheaterPage(
-        keyword = keyword,
-        page = page,
-        size = size
-    ).map { it.items }
-
-    override suspend fun fetchTheaterPage(
-        keyword: String?,
-        page: Int,
-        size: Int
-    ): Result<TheaterPage> = runCatching {
-        Timber.d(
-            "RemoteAppRepository.fetchTheaterPage request keywordBlank=%s page=%d size=%d",
-            keyword.isNullOrBlank(),
-            page,
-            size
-        )
-        val response = apiService.fetchTheaters(
-            keyword = keyword,
-            page = page,
-            size = size
-        )
-        val data = JsonParser.parseToJsonElement(response.string())
-            .jsonObject
-            .dataObject()
-        val items = data
-            .array("content")
-            .map { it.jsonObject.toTheater() }
-        TheaterPage(
-            items = items,
-            hasMore = data.hasMore(itemsLoaded = items.size, requestedSize = size)
-        )
-    }.onSuccess { pageResult ->
-        Timber.d(
-            "RemoteAppRepository.fetchTheaterPage success itemCount=%d hasMore=%s",
-            pageResult.items.size,
-            pageResult.hasMore
-        )
-    }.onFailure {
-        Timber.w(it, "RemoteAppRepository.fetchTheaterPage failed page=%d size=%d", page, size)
-    }
-
-    override suspend fun fetchTheater(theaterId: String): Result<Theater> = runCatching {
-        Timber.d("RemoteAppRepository.fetchTheater request theaterId=%s", theaterId)
-        JsonParser.parseToJsonElement(apiService.fetchTheater(theaterId).string())
-            .jsonObject
-            .dataObject()
-            .toTheater()
-    }.onSuccess { theater ->
-        Timber.d("RemoteAppRepository.fetchTheater success theaterId=%s", theater.id)
-    }.onFailure {
-        Timber.w(it, "RemoteAppRepository.fetchTheater failed theaterId=%s", theaterId)
-    }
-
-    override suspend fun saveTheater(theaterId: String): Result<Unit> = runCatching {
-        Timber.d("RemoteAppRepository.saveTheater request theaterId=%s", theaterId)
-        apiService.saveTheater(theaterId).close()
-        Unit
-    }.onSuccess {
-        Timber.d("RemoteAppRepository.saveTheater success theaterId=%s", theaterId)
-    }.onFailure {
-        Timber.w(it, "RemoteAppRepository.saveTheater failed theaterId=%s", theaterId)
-    }
-
-    override suspend fun removeSavedTheater(theaterId: String): Result<Unit> = runCatching {
-        Timber.d("RemoteAppRepository.removeSavedTheater request theaterId=%s", theaterId)
-        apiService.removeSavedTheater(theaterId).close()
-        Unit
-    }.onSuccess {
-        Timber.d("RemoteAppRepository.removeSavedTheater success theaterId=%s", theaterId)
-    }.onFailure {
-        Timber.w(it, "RemoteAppRepository.removeSavedTheater failed theaterId=%s", theaterId)
     }
 
     override suspend fun fetchTicketCollection(): Result<TicketCollection> = runCatching {
@@ -425,32 +335,6 @@ class RemoteAppRepository @Inject constructor(
             producer = string("producer"),
             releaseDate = string("releaseDate"),
             keywords = string("keywords")
-        )
-    }
-
-    private fun JsonObject.toTheater(): Theater {
-        return Theater(
-            id = string("theaCd"),
-            name = string("theaName"),
-            screenName = string("scrnName"),
-            screenType = string("screenGb"),
-            address = string("address"),
-            phone = string("phone"),
-            homepage = string("homepage"),
-            seatCount = int("seatCount"),
-            naverMapUrl = string("naverMapUrl")
-        )
-    }
-
-    private fun JsonObject.toUserProfile(): UserProfile {
-        return UserProfile(
-            id = string("id"),
-            loginId = string("loginId"),
-            nickname = string("nickname"),
-            intro = string("intro"),
-            ticketCount = int("ticketCount"),
-            savedTicketCount = int("savedTicketCount"),
-            savedTheaterCount = int("savedTheaterCount")
         )
     }
 

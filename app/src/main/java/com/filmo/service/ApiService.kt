@@ -3,7 +3,6 @@ package com.filmo.service
 import okhttp3.ResponseBody
 import okhttp3.RequestBody
 import retrofit2.http.Body
-import retrofit2.http.DELETE
 import retrofit2.http.Field
 import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
@@ -62,29 +61,6 @@ interface ApiService {
     @GET("api/movies/image/{imagePath}")
     suspend fun fetchMovieImage(
         @Path("imagePath", encoded = true) imagePath: String
-    ): ResponseBody
-
-    @GET("api/theaters")
-    suspend fun fetchTheaters(
-        @Query("keyword") keyword: String? = null,
-        @Query("page") page: Int = 0,
-        @Query("size") size: Int = 20,
-        @Query("sort") sort: List<String>? = null
-    ): ResponseBody
-
-    @GET("api/theaters/{theaCd}")
-    suspend fun fetchTheater(
-        @Path("theaCd") theaCd: String
-    ): ResponseBody
-
-    @POST("api/theaters/{theaCd}/save")
-    suspend fun saveTheater(
-        @Path("theaCd") theaCd: String
-    ): ResponseBody
-
-    @DELETE("api/theaters/{theaCd}/save")
-    suspend fun removeSavedTheater(
-        @Path("theaCd") theaCd: String
     ): ResponseBody
 
     @GET("api/tickets")

@@ -102,41 +102,6 @@ class MockAppRepositoryTest {
     }
 
     @Test
-    fun fetchTheatersReturnsIndependentFilmTheatersAfterMockDelay() = runBlocking {
-        val repository = MockAppRepository()
-
-        val startedAt = System.currentTimeMillis()
-        val result = repository.fetchTheaters()
-        val elapsedMillis = System.currentTimeMillis() - startedAt
-
-        assertTrue(result.isSuccess)
-        assertTrue(result.getOrThrow().any { it.name == "인디스페이스" })
-        assertTrue(result.getOrThrow().all { it.id.isNotBlank() })
-        assertTrue(elapsedMillis >= 250)
-    }
-
-    @Test
-    fun fetchTheaterReturnsMatchingTheaterAfterMockDelay() = runBlocking {
-        val repository = MockAppRepository()
-
-        val result = repository.fetchTheater("indiespace")
-
-        assertTrue(result.isSuccess)
-        assertEquals("인디스페이스", result.getOrThrow().name)
-    }
-
-    @Test
-    fun saveAndRemoveSavedTheaterReturnSuccessAfterMockDelay() = runBlocking {
-        val repository = MockAppRepository()
-
-        val saveResult = repository.saveTheater("indiespace")
-        val removeResult = repository.removeSavedTheater("indiespace")
-
-        assertTrue(saveResult.isSuccess)
-        assertTrue(removeResult.isSuccess)
-    }
-
-    @Test
     fun submitItemReturnsCreatedItemAfterMockDelay() = runBlocking {
         val repository = MockAppRepository()
         val request = SampleItemRequest(

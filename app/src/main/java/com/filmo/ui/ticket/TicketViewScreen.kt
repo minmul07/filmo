@@ -1,4 +1,4 @@
-package com.filmo.ui.feed
+package com.filmo.ui.ticket
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -58,8 +58,8 @@ import com.filmo.ui.theme.FilmoTheme
 import kotlinx.coroutines.launch
 
 @Composable
-fun FeedScreen(
-    viewModel: FeedViewModel = hiltViewModel(),
+fun TicketViewScreen(
+    viewModel: TicketViewModel = hiltViewModel(),
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -69,7 +69,7 @@ fun FeedScreen(
         viewModel.loadPublicTickets()
     }
 
-    FeedContent(
+    TicketViewContent(
         uiState = uiState,
         modifier = modifier,
         onRetryClick = {
@@ -81,8 +81,8 @@ fun FeedScreen(
 }
 
 @Composable
-private fun FeedContent(
-    uiState: FeedUiState,
+private fun TicketViewContent(
+    uiState: TicketViewUiState,
     onRetryClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -108,7 +108,7 @@ private fun FeedContent(
             item(
                 span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }
             ) {
-                FeedHeader()
+                TicketViewHeader()
             }
 
             if (uiState.errorMessage != null && uiState.tickets.isNotEmpty()) {
@@ -133,7 +133,7 @@ private fun FeedContent(
                 uiState.errorMessage != null && uiState.tickets.isEmpty() -> item(
                     span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }
                 ) {
-                    FeedPlaceholder(
+                    TicketViewPlaceholder(
                         title = "공개 티켓을 불러오지 못했어요",
                         body = "잠시 후 다시 시도해 주세요.",
                         action = {
@@ -147,7 +147,7 @@ private fun FeedContent(
                 uiState.tickets.isEmpty() -> item(
                     span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }
                 ) {
-                    FeedPlaceholder(
+                    TicketViewPlaceholder(
                         title = "아직 공개된 티켓이 없어요",
                         body = "다른 사용자의 독립영화 기록이 곧 표시됩니다."
                     )
@@ -155,7 +155,7 @@ private fun FeedContent(
 
                 else -> items(
                     items = uiState.tickets,
-                    key = { it.feedKey },
+                    key = { it.ticketViewKey },
                     contentType = { "public-ticket" }
                 ) { ticket ->
                     PublicTicketCard(
@@ -169,7 +169,7 @@ private fun FeedContent(
 }
 
 @Composable
-private fun FeedHeader() {
+private fun TicketViewHeader() {
     Column(
         modifier = Modifier.padding(bottom = 4.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -217,17 +217,17 @@ private fun PublicTicketCard(
             .ifBlank { "관람일 미입력" }
     }
     val ticketShape = remember {
-        FeedTicketShape(
+        TicketViewTicketShape(
             cornerCutout = 10.dp,
             sideNotchRadius = 10.dp,
-            perforationFraction = FeedTicketPerforationFraction
+            perforationFraction = TicketViewTicketPerforationFraction
         )
     }
 
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(FeedTicketAspectRatio)
+            .aspectRatio(TicketViewTicketAspectRatio)
             .semantics(mergeDescendants = true) {
                 contentDescription = "${ticket.movieTitle} 공개 티켓, $watchedText, ${ticket.theaterName}"
             },
@@ -240,7 +240,7 @@ private fun PublicTicketCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(FeedTicketPerforationFraction)
+                        .weight(TicketViewTicketPerforationFraction)
                 ) {
                     MoviePosterImage(
                         imageUrl = posterUrl,
@@ -280,12 +280,12 @@ private fun PublicTicketCard(
                     review = ticket.review,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f - FeedTicketPerforationFraction)
+                        .weight(1f - TicketViewTicketPerforationFraction)
                 )
             }
-            FeedTicketPerforationLine(
+            TicketViewTicketPerforationLine(
                 modifier = Modifier.fillMaxSize(),
-                fraction = FeedTicketPerforationFraction
+                fraction = TicketViewTicketPerforationFraction
             )
         }
     }
@@ -308,13 +308,13 @@ private fun PublicTicketDetailArea(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            FeedTicketInfoBlock(
+            TicketViewTicketInfoBlock(
                 icon = Icons.Filled.LocationOn,
                 label = "영화관",
                 value = theaterName,
                 modifier = Modifier.weight(1f)
             )
-            FeedTicketInfoBlock(
+            TicketViewTicketInfoBlock(
                 label = "관람일",
                 value = watchedText,
                 modifier = Modifier.weight(1f)
@@ -331,7 +331,7 @@ private fun PublicTicketDetailArea(
 }
 
 @Composable
-private fun FeedTicketInfoBlock(
+private fun TicketViewTicketInfoBlock(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
@@ -370,7 +370,7 @@ private fun FeedTicketInfoBlock(
 }
 
 @Composable
-private fun FeedTicketPerforationLine(
+private fun TicketViewTicketPerforationLine(
     fraction: Float,
     modifier: Modifier = Modifier
 ) {
@@ -387,7 +387,7 @@ private fun FeedTicketPerforationLine(
     }
 }
 
-private class FeedTicketShape(
+private class TicketViewTicketShape(
     private val cornerCutout: Dp,
     private val sideNotchRadius: Dp,
     private val perforationFraction: Float
@@ -484,7 +484,7 @@ private class FeedTicketShape(
 }
 
 @Composable
-private fun FeedPlaceholder(
+private fun TicketViewPlaceholder(
     title: String,
     body: String,
     action: @Composable (() -> Unit)? = null
@@ -523,20 +523,20 @@ private fun FeedPlaceholder(
     }
 }
 
-private val PublicTicket.feedKey: String
+private val PublicTicket.ticketViewKey: String
     get() = listOf(id, movieSeq, watchedDate, watchedTime, theaterName)
         .filter { it.isNotBlank() }
         .joinToString("-")
 
-private const val FeedTicketAspectRatio = 0.57f
-private const val FeedTicketPerforationFraction = 0.69f
+private const val TicketViewTicketAspectRatio = 0.57f
+private const val TicketViewTicketPerforationFraction = 0.69f
 
 @Preview(showBackground = true)
 @Composable
-private fun FeedContentPreview() {
+private fun TicketViewContentPreview() {
     FilmoTheme {
-        FeedContent(
-            uiState = FeedUiState(
+        TicketViewContent(
+            uiState = TicketViewUiState(
                 tickets = listOf(
                     PublicTicket(
                         id = "preview-1",

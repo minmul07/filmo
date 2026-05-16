@@ -10,11 +10,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Label
+import androidx.compose.material.icons.outlined.AddCircle
+import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -23,7 +25,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -44,32 +45,21 @@ import com.filmo.ui.ScreenDestination
 import com.filmo.ui.collection.CollectionDetailScreen
 import com.filmo.ui.collection.CollectionEditScreen
 import com.filmo.ui.collection.CollectionScreen
-import com.filmo.ui.feed.FeedScreen
 import com.filmo.ui.movie.RegisterMovieScreen
 import com.filmo.ui.movie.RegisterMovieViewModel
 import com.filmo.ui.movie.ViewingInfoRoute
-import com.filmo.ui.profile.ProfileRoute
-import com.filmo.ui.theater.TheaterDetailScreen
-import com.filmo.ui.theater.TheaterFinderScreen
+import com.filmo.ui.ticket.TicketViewScreen
 
 @Composable
 fun MainScreen(
-    startDestination: ScreenDestination = ScreenDestination.Feed,
+    startDestination: ScreenDestination = ScreenDestination.Collection,
 ) {
     val backStack = rememberNavBackStack(startDestination)
     val currentDestination = backStack.lastOrNull() as? ScreenDestination ?: startDestination
-    var savedTheaterIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     val navigateToTopLevelDestination: (ScreenDestination) -> Unit = { destination ->
         if (currentDestination != destination) {
             backStack.clear()
             backStack.add(destination)
-        }
-    }
-    val onTheaterBookmarkChanged: (String, Boolean) -> Unit = { theaterId, saved ->
-        savedTheaterIds = if (saved) {
-            savedTheaterIds + theaterId
-        } else {
-            savedTheaterIds - theaterId
         }
     }
     val navigateBack = {
@@ -122,8 +112,8 @@ fun MainScreen(
             ),
             onBack = navigateBack,
             entryProvider = entryProvider {
-                entry<ScreenDestination.Feed> {
-                    FeedScreen()
+                entry<ScreenDestination.TicketView> {
+                    TicketViewScreen()
                 }
 
                 entry<ScreenDestination.Record> {
@@ -133,7 +123,7 @@ fun MainScreen(
                         onNavigateToViewingInfo = {
                             backStack.add(ScreenDestination.RecordViewingInfo)
                         },
-                        onBack = { navigateToTopLevelDestination(ScreenDestination.Feed) }
+                        onBack = { navigateToTopLevelDestination(ScreenDestination.Collection) }
                     )
                 }
 
@@ -144,33 +134,6 @@ fun MainScreen(
                         onNavigateToCollection = {
                             navigateToTopLevelDestination(ScreenDestination.Collection)
                         }
-                    )
-                }
-
-                entry<ScreenDestination.TheaterFinder> {
-                    TheaterFinderScreen(
-                        syncedSavedTheaterIds = savedTheaterIds,
-                        onBookmarkChanged = onTheaterBookmarkChanged,
-                        onTheaterClick = { theaterId, initiallySaved ->
-                            if (initiallySaved) {
-                                onTheaterBookmarkChanged(theaterId, true)
-                            }
-                            backStack.add(
-                                ScreenDestination.TheaterDetail(
-                                    theaterId = theaterId,
-                                    initiallySaved = initiallySaved
-                                )
-                            )
-                        }
-                    )
-                }
-
-                entry<ScreenDestination.TheaterDetail> {
-                    TheaterDetailScreen(
-                        theaterId = it.theaterId,
-                        initiallySaved = it.initiallySaved,
-                        onBookmarkChanged = onTheaterBookmarkChanged,
-                        onBack = navigateBack
                     )
                 }
 
@@ -203,10 +166,6 @@ fun MainScreen(
                         onSaved = { navigateToTopLevelDestination(ScreenDestination.Collection) }
                     )
                 }
-
-                entry<ScreenDestination.Profile> {
-                    ProfileRoute()
-                }
             }
         )
     }
@@ -228,7 +187,6 @@ internal fun shouldReserveBottomBarSpace(
         currentDestination is ScreenDestination.RecordViewingInfo -> false
         currentDestination is ScreenDestination.CollectionDetail -> false
         currentDestination is ScreenDestination.CollectionEdit -> false
-        currentDestination is ScreenDestination.TheaterDetail -> false
         else -> true
     }
 }
@@ -236,11 +194,9 @@ internal fun shouldReserveBottomBarSpace(
 internal fun shouldPlaceBottomBarAboveContent(
     currentDestination: ScreenDestination
 ): Boolean {
-    return currentDestination is ScreenDestination.Feed ||
+    return currentDestination is ScreenDestination.TicketView ||
         currentDestination is ScreenDestination.Record ||
-        currentDestination is ScreenDestination.TheaterFinder ||
-        currentDestination is ScreenDestination.Collection ||
-        currentDestination is ScreenDestination.Profile
+        currentDestination is ScreenDestination.Collection
 }
 
 @Composable
@@ -278,11 +234,25 @@ private data class TopLevelDestination(
     val icon: ImageVector
 )
 
+internal data class BottomBarDestinationSpec(
+    val destination: ScreenDestination,
+    val label: String
+)
+
+internal fun mainTopLevelDestinationSpecs(): List<BottomBarDestinationSpec> {
+    return TopLevelDestinations.map { item ->
+        BottomBarDestinationSpec(
+            destination = item.destination,
+            label = item.label
+        )
+    }
+}
+
 private val TopLevelDestinations = listOf(
     TopLevelDestination(
-        destination = ScreenDestination.Feed,
-        label = "피드",
-        icon = Icons.Filled.Home
+        destination = ScreenDestination.Collection,
+        label = "컬렉션",
+        icon = Icons.Outlined.Bookmark
     ),
     TopLevelDestination(
         destination = ScreenDestination.Record,
@@ -290,18 +260,8 @@ private val TopLevelDestinations = listOf(
         icon = Icons.Filled.Add
     ),
     TopLevelDestination(
-        destination = ScreenDestination.TheaterFinder,
-        label = "영화관",
-        icon = Icons.Filled.LocationOn
-    ),
-    TopLevelDestination(
-        destination = ScreenDestination.Collection,
-        label = "컬렉션",
-        icon = Icons.Filled.Bookmark
-    ),
-    TopLevelDestination(
-        destination = ScreenDestination.Profile,
-        label = "프로필",
-        icon = Icons.Filled.Person
+        destination = ScreenDestination.TicketView,
+        label = "티켓보기",
+        icon = Icons.AutoMirrored.Filled.Label
     )
 )

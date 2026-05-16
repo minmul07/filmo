@@ -5,22 +5,13 @@ import kotlinx.serialization.Serializable
 
 sealed interface ScreenDestination : NavKey {
     @Serializable
-    data object Feed : ScreenDestination
+    data object TicketView : ScreenDestination
 
     @Serializable
     data object Record : ScreenDestination
 
     @Serializable
     data object RecordViewingInfo : ScreenDestination
-
-    @Serializable
-    data object TheaterFinder : ScreenDestination
-
-    @Serializable
-    data class TheaterDetail(
-        val theaterId: String,
-        val initiallySaved: Boolean
-    ) : ScreenDestination
 
     @Serializable
     data object Collection : ScreenDestination
@@ -30,7 +21,4 @@ sealed interface ScreenDestination : NavKey {
 
     @Serializable
     data class CollectionEdit(val ticketId: String) : ScreenDestination
-
-    @Serializable
-    data object Profile: ScreenDestination
 }

@@ -35,4 +35,9 @@ class RegisterMovieStepLayoutTest {
         assertTrue(isViewingInfoScreenStep(RegisterMovieStep.MovieInfo))
         assertFalse(isViewingInfoScreenStep(RegisterMovieStep.Share))
     }
+
+    @Test
+    fun movieSearchStepUsesRecordHeaderTitle() {
+        assertEquals("기록하기", registerMovieHeaderTitle(RegisterMovieStep.MovieSearch))
+    }
 }

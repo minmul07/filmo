@@ -1,27 +1,31 @@
 package com.filmo.ui.movie
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,11 +35,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.filmo.service.MovieCatalogItem
+import com.filmo.ui.theme.FilmoPrimary300
 
 @Composable
 internal fun MovieSearchStep(
@@ -46,6 +55,7 @@ internal fun MovieSearchStep(
     canLoadMore: Boolean,
     errorMessage: String?,
     posterImageCache: MoviePosterBitmapSessionCache,
+    modifier: Modifier = Modifier,
     onQueryChange: (String) -> Unit,
     onMovieClick: (MovieCatalogItem) -> Unit,
     onRetryClick: () -> Unit,
@@ -72,27 +82,16 @@ internal fun MovieSearchStep(
         }
     }
 
-    StepContent(
-        action = {},
-        scrollable = false
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(top = 16.dp)
     ) {
-        Text(
-            text = "기록하기",
-            style = MaterialTheme.typography.headlineSmall
+        MovieSearchField(
+            query = query,
+            onQueryChange = onQueryChange
         )
-        OutlinedTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            modifier = Modifier.fillMaxWidth(),
-            trailingIcon = {
-                Icon(
-                    imageVector = Icons.Filled.Search,
-                    contentDescription = null
-                )
-            },
-            label = { Text("관람한 영화를 검색하세요") },
-            singleLine = true
-        )
+        Spacer(modifier = Modifier.height(20.dp))
         when {
             isLoading -> {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -125,8 +124,8 @@ internal fun MovieSearchStep(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(18.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(
                         items = movies,
@@ -158,6 +157,66 @@ internal fun MovieSearchStep(
 }
 
 @Composable
+private fun MovieSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val searchTextStyle = MaterialTheme.typography.bodySmall.copy(
+        fontWeight = FontWeight.Normal,
+        fontSize = 16.sp,
+        lineHeight = 21.sp
+    )
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(44.dp),
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = 16.dp, end = 12.dp)
+                .semantics {
+                    contentDescription = "관람한 영화 검색"
+                },
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                textStyle = searchTextStyle.copy(
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                decorationBox = { innerTextField ->
+                    Box {
+                        if (query.isBlank()) {
+                            Text(
+                                text = "관람한 영화를 검색하세요",
+                                style = searchTextStyle,
+                                color = FilmoPrimary300
+                            )
+                        }
+                        innerTextField()
+                    }
+                }
+            )
+            Icon(
+                imageVector = Icons.Filled.Search,
+                contentDescription = null,
+                tint = FilmoPrimary300
+            )
+        }
+    }
+}
+
+@Composable
 private fun MovieResultCard(
     movie: MovieCatalogItem,
     posterImageCache: MoviePosterBitmapSessionCache,
@@ -169,39 +228,33 @@ private fun MovieResultCard(
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .semantics { role = Role.Button },
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         MoviePoster(
             movie = movie,
             imageCache = posterImageCache,
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(0.72f)
+                .aspectRatio(MoviePosterAspectRatio),
+            shape = RoundedCornerShape(0.dp),
+            showBorder = false
         )
         Text(
             text = movie.title,
-            style = MaterialTheme.typography.labelLarge,
+            style = movieResultTitleTextStyle(),
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Star,
-                contentDescription = null,
-                modifier = Modifier.size(14.dp),
-                tint = RatingUnselectedColor
-            )
-            Text(
-                text = "4.9(21)",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
     }
+}
+
+@Composable
+private fun movieResultTitleTextStyle(): TextStyle {
+    return MaterialTheme.typography.labelMedium.copy(
+        fontSize = 12.sp,
+        lineHeight = 16.sp
+    )
 }
 
 @Composable
@@ -232,3 +285,4 @@ private fun MovieCatalogFooter(
 }
 
 private const val MovieCatalogPrefetchThreshold = 5
+private const val MoviePosterAspectRatio = 104f / 146f

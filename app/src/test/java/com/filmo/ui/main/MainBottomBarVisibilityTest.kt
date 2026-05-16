@@ -1,16 +1,38 @@
 package com.filmo.ui.main
 
 import com.filmo.ui.ScreenDestination
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MainBottomBarVisibilityTest {
     @Test
+    fun bottomBarUsesCollectionRecordAndTicketViewInOrder() {
+        assertEquals(
+            listOf(
+                BottomBarDestinationSpec(
+                    destination = ScreenDestination.Collection,
+                    label = "컬렉션"
+                ),
+                BottomBarDestinationSpec(
+                    destination = ScreenDestination.Record,
+                    label = "기록하기"
+                ),
+                BottomBarDestinationSpec(
+                    destination = ScreenDestination.TicketView,
+                    label = "티켓보기"
+                )
+            ),
+            mainTopLevelDestinationSpecs()
+        )
+    }
+
+    @Test
     fun topLevelDestinationsReserveBottomBarSpace() {
         assertTrue(
             shouldReserveBottomBarSpace(
-                currentDestination = ScreenDestination.Feed
+                currentDestination = ScreenDestination.TicketView
             )
         )
     }
@@ -41,11 +63,9 @@ class MainBottomBarVisibilityTest {
 
     @Test
     fun topLevelDestinationsPlaceBottomBarAboveContent() {
-        assertTrue(shouldPlaceBottomBarAboveContent(ScreenDestination.Feed))
+        assertTrue(shouldPlaceBottomBarAboveContent(ScreenDestination.TicketView))
         assertTrue(shouldPlaceBottomBarAboveContent(ScreenDestination.Record))
-        assertTrue(shouldPlaceBottomBarAboveContent(ScreenDestination.TheaterFinder))
         assertTrue(shouldPlaceBottomBarAboveContent(ScreenDestination.Collection))
-        assertTrue(shouldPlaceBottomBarAboveContent(ScreenDestination.Profile))
     }
 
     @Test
@@ -60,14 +80,6 @@ class MainBottomBarVisibilityTest {
                 ScreenDestination.CollectionDetail(ticketId = "ticket-1")
             )
         )
-        assertFalse(
-            shouldPlaceBottomBarAboveContent(
-                ScreenDestination.TheaterDetail(
-                    theaterId = "theater-1",
-                    initiallySaved = false
-                )
-            )
-        )
     }
 
     @Test
@@ -80,14 +92,6 @@ class MainBottomBarVisibilityTest {
         assertFalse(
             shouldReserveBottomBarSpace(
                 currentDestination = ScreenDestination.CollectionDetail(ticketId = "ticket-1")
-            )
-        )
-        assertFalse(
-            shouldReserveBottomBarSpace(
-                currentDestination = ScreenDestination.TheaterDetail(
-                    theaterId = "theater-1",
-                    initiallySaved = false
-                )
             )
         )
     }
@@ -110,7 +114,7 @@ class MainBottomBarVisibilityTest {
     fun recordMovieStateIsResetAfterLeavingRecordRoute() {
         assertTrue(
             shouldResetRecordMovieState(
-                currentDestination = ScreenDestination.Feed
+                currentDestination = ScreenDestination.TicketView
             )
         )
         assertTrue(

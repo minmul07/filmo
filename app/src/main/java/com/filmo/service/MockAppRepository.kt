@@ -87,42 +87,6 @@ class MockAppRepository @Inject constructor() : AppRepository {
             keywords = "취향, 청춘"
         )
     )
-    private val theaters = listOf(
-        Theater(
-            id = "indiespace",
-            name = "인디스페이스",
-            screenName = "1관",
-            screenType = "독립영화전용관",
-            address = "서울특별시 마포구 양화로 176",
-            phone = "02-738-0366",
-            homepage = "https://indiespace.kr",
-            seatCount = 210,
-            naverMapUrl = "https://map.naver.com"
-        ),
-        Theater(
-            id = "seoulartcinema",
-            name = "서울아트시네마",
-            screenName = "시네마테크",
-            screenType = "예술영화관",
-            address = "서울특별시 중구 정동길 3",
-            phone = "02-741-9782",
-            homepage = "https://cinematheque.seoul.kr",
-            seatCount = 150,
-            naverMapUrl = "https://map.naver.com"
-        ),
-        Theater(
-            id = "artnine",
-            name = "아트나인",
-            screenName = "0관",
-            screenType = "예술영화관",
-            address = "서울특별시 동작구 동작대로 89",
-            phone = "02-536-0058",
-            homepage = "https://www.artnine.co.kr",
-            seatCount = 92,
-            naverMapUrl = "https://map.naver.com"
-        )
-    )
-    private val savedTheaterIds = mutableSetOf<String>()
     private val myTickets = mutableListOf(
         MovieTicket(
             id = "my-ticket-1",
@@ -196,18 +160,6 @@ class MockAppRepository @Inject constructor() : AppRepository {
         "시네필여행자${(100..999).random()}"
     }
 
-    override suspend fun fetchMyProfile(): Result<UserProfile> = withMockDelay("fetchMyProfile") {
-        UserProfile(
-            id = "mock-user",
-            loginId = "mock-user",
-            nickname = "모크사용자",
-            intro = "독립영화와 작은 극장을 기록하고 있어요.",
-            ticketCount = myTickets.size,
-            savedTicketCount = savedTickets.size,
-            savedTheaterCount = savedTheaterIds.size
-        )
-    }
-
     override suspend fun fetchItems(): Result<List<SampleItem>> = withMockDelay("fetchItems") {
         listOf(
             SampleItem(
@@ -263,39 +215,6 @@ class MockAppRepository @Inject constructor() : AppRepository {
     override suspend fun fetchMovieDetail(movieId: String): Result<MovieDetail> = withMockDelay("fetchMovieDetail(movieId=$movieId)") {
         movieDetails.firstOrNull { it.id == movieId }
             ?: error("Movie not found")
-    }
-
-    override suspend fun fetchTheaters(
-        keyword: String?,
-        page: Int,
-        size: Int
-    ): Result<List<Theater>> = withMockDelay(
-        "fetchTheaters(keywordBlank=${keyword.isNullOrBlank()}, page=$page, size=$size)"
-    ) {
-        theaters
-            .filter { theater ->
-                keyword.isNullOrBlank() ||
-                    theater.name.contains(keyword, ignoreCase = true) ||
-                    theater.address.contains(keyword, ignoreCase = true)
-            }
-            .drop(page.coerceAtLeast(0) * size.coerceAtLeast(1))
-            .take(size.coerceAtLeast(1))
-    }
-
-    override suspend fun fetchTheater(theaterId: String): Result<Theater> = withMockDelay("fetchTheater(theaterId=$theaterId)") {
-        theaters.firstOrNull { it.id == theaterId }
-            ?: error("Theater not found")
-    }
-
-    override suspend fun saveTheater(theaterId: String): Result<Unit> = withMockDelay("saveTheater(theaterId=$theaterId)") {
-        require(theaters.any { it.id == theaterId }) { "Theater not found" }
-        savedTheaterIds += theaterId
-        Unit
-    }
-
-    override suspend fun removeSavedTheater(theaterId: String): Result<Unit> = withMockDelay("removeSavedTheater(theaterId=$theaterId)") {
-        savedTheaterIds -= theaterId
-        Unit
     }
 
     override suspend fun fetchTicketCollection(): Result<TicketCollection> = withMockDelay("fetchTicketCollection") {

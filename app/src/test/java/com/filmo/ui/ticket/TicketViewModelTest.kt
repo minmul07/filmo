@@ -1,4 +1,4 @@
-package com.filmo.ui.feed
+package com.filmo.ui.ticket
 
 import com.filmo.service.AppRepository
 import com.filmo.service.MovieCatalogItem
@@ -6,7 +6,6 @@ import com.filmo.service.MovieDetail
 import com.filmo.service.PublicTicket
 import com.filmo.service.SampleItem
 import com.filmo.service.SampleItemRequest
-import com.filmo.service.Theater
 import com.filmo.service.TicketCollection
 import com.filmo.service.UpdateTicketRequest
 import kotlinx.coroutines.runBlocking
@@ -16,10 +15,10 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class FeedViewModelTest {
+class TicketViewModelTest {
     @Test
     fun loadPublicTicketsStoresRepositoryTickets() = runBlocking {
-        val viewModel = FeedViewModel(FakeFeedRepository())
+        val viewModel = TicketViewModel(FakeTicketViewRepository())
 
         viewModel.loadPublicTickets()
 
@@ -31,8 +30,8 @@ class FeedViewModelTest {
 
     @Test
     fun loadPublicTicketsShowsRecoverableErrorWhenRepositoryFails() = runBlocking {
-        val viewModel = FeedViewModel(
-            FakeFeedRepository(
+        val viewModel = TicketViewModel(
+            FakeTicketViewRepository(
                 publicTicketsResult = Result.failure(IllegalStateException("boom"))
             )
         )
@@ -45,7 +44,7 @@ class FeedViewModelTest {
         assertEquals("공개 티켓을 불러오지 못했어요. 다시 시도해 주세요.", state.errorMessage)
     }
 
-    private class FakeFeedRepository(
+    private class FakeTicketViewRepository(
         private val publicTicketsResult: Result<List<PublicTicket>> = Result.success(
             listOf(
                 PublicTicket(
@@ -82,16 +81,6 @@ class FeedViewModelTest {
         ): Result<List<MovieCatalogItem>> = Result.success(emptyList())
 
         override suspend fun fetchMovieDetail(movieId: String): Result<MovieDetail> {
-            return Result.failure(UnsupportedOperationException("Not needed in this test"))
-        }
-
-        override suspend fun fetchTheaters(
-            keyword: String?,
-            page: Int,
-            size: Int
-        ): Result<List<Theater>> = Result.success(emptyList())
-
-        override suspend fun fetchTheater(theaterId: String): Result<Theater> {
             return Result.failure(UnsupportedOperationException("Not needed in this test"))
         }
 

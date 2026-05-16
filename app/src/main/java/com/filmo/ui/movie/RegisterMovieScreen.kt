@@ -112,7 +112,7 @@ private fun RegisterMovieContent(
                     .fillMaxSize()
                     .padding(bottom = searchBottomPadding)
                     .background(MaterialTheme.colorScheme.background)
-                    .padding(horizontal = 24.dp)
+                    .padding(horizontal = 16.dp)
             ) {
                 RegisterMovieHeader(
                     step = RegisterMovieStep.MovieSearch,
@@ -126,6 +126,7 @@ private fun RegisterMovieContent(
                     canLoadMore = uiState.canLoadMoreMovies,
                     errorMessage = uiState.errorMessage,
                     posterImageCache = posterImageCache,
+                    modifier = Modifier.weight(1f),
                     onQueryChange = onSearchQueryChange,
                     onMovieClick = onMovieClick,
                     onRetryClick = onLoadMovies,
@@ -179,10 +180,26 @@ internal fun RegisterMovieHeader(
     step: RegisterMovieStep,
     onBack: () -> Unit
 ) {
+    if (step == RegisterMovieStep.MovieSearch) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Text(
+                text = registerMovieHeaderTitle(step),
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
+        return
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(48.dp),
+            .height(56.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBack) {
@@ -192,7 +209,7 @@ internal fun RegisterMovieHeader(
             )
         }
         Text(
-            text = step.title,
+            text = registerMovieHeaderTitle(step),
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.titleLarge,
             textAlign = TextAlign.Center
@@ -211,12 +228,13 @@ internal fun RegisterMovieHeader(
     }
 }
 
-private val RegisterMovieStep.title: String
-    get() = when (this) {
-        RegisterMovieStep.MovieSearch -> "영화 검색"
+internal fun registerMovieHeaderTitle(step: RegisterMovieStep): String {
+    return when (step) {
+        RegisterMovieStep.MovieSearch -> "기록하기"
         RegisterMovieStep.MovieInfo -> "관람 정보 입력"
         RegisterMovieStep.Share -> "관람 정보 입력"
     }
+}
 
 private val RegisterMovieStep.index: Int
     get() = when (this) {

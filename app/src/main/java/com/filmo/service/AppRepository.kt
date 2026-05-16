@@ -13,10 +13,6 @@ interface AppRepository {
         return Result.failure(UnsupportedOperationException("Random nickname API is not implemented."))
     }
 
-    suspend fun fetchMyProfile(): Result<UserProfile> {
-        return Result.failure(UnsupportedOperationException("Profile API is not implemented."))
-    }
-
     suspend fun ping(): Result<String>
 
     suspend fun fetchItems(): Result<List<SampleItem>>
@@ -54,39 +50,6 @@ interface AppRepository {
 
     suspend fun fetchMovieDetail(movieId: String): Result<MovieDetail>
 
-    suspend fun fetchTheaters(
-        keyword: String? = null,
-        page: Int = 0,
-        size: Int = 20
-    ): Result<List<Theater>>
-
-    suspend fun fetchTheaterPage(
-        keyword: String? = null,
-        page: Int = 0,
-        size: Int = 20
-    ): Result<TheaterPage> {
-        return fetchTheaters(
-            keyword = keyword,
-            page = page,
-            size = size
-        ).map { theaters ->
-            TheaterPage(
-                items = theaters,
-                hasMore = theaters.size >= size.coerceAtLeast(1)
-            )
-        }
-    }
-
-    suspend fun fetchTheater(theaterId: String): Result<Theater>
-
-    suspend fun saveTheater(theaterId: String): Result<Unit> {
-        return Result.failure(UnsupportedOperationException("Theater save API is not implemented."))
-    }
-
-    suspend fun removeSavedTheater(theaterId: String): Result<Unit> {
-        return Result.failure(UnsupportedOperationException("Saved theater delete API is not implemented."))
-    }
-
     suspend fun fetchTicketCollection(): Result<TicketCollection>
 
     suspend fun fetchPublicTickets(sort: String = "latest"): Result<List<PublicTicket>> {
@@ -119,16 +82,6 @@ data class AuthSession(
     val loginId: String,
     val nickname: String,
     val accessToken: String
-)
-
-data class UserProfile(
-    val id: String,
-    val loginId: String,
-    val nickname: String,
-    val intro: String,
-    val ticketCount: Int,
-    val savedTicketCount: Int,
-    val savedTheaterCount: Int
 )
 
 data class SampleItem(
@@ -176,23 +129,6 @@ data class MovieDetail(
     val producer: String,
     val releaseDate: String,
     val keywords: String
-)
-
-data class Theater(
-    val id: String,
-    val name: String,
-    val screenName: String,
-    val screenType: String,
-    val address: String,
-    val phone: String,
-    val homepage: String,
-    val seatCount: Int,
-    val naverMapUrl: String
-)
-
-data class TheaterPage(
-    val items: List<Theater>,
-    val hasMore: Boolean
 )
 
 data class MovieTicket(

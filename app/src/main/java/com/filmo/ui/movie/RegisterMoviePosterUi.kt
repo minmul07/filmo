@@ -34,13 +34,17 @@ import java.net.URL
 internal fun MoviePoster(
     movie: MovieCatalogItem,
     imageCache: MoviePosterBitmapSessionCache,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    shape: RoundedCornerShape = RoundedCornerShape(10.dp),
+    showBorder: Boolean = true
 ) {
     MoviePosterImage(
         imageUrl = remember(movie.imagePath) { movie.imageUrl() },
         title = movie.title,
         imageCache = imageCache,
-        modifier = modifier
+        modifier = modifier,
+        shape = shape,
+        showBorder = showBorder
     )
 }
 

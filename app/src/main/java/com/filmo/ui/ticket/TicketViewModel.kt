@@ -1,4 +1,4 @@
-package com.filmo.ui.feed
+package com.filmo.ui.ticket
 
 import androidx.lifecycle.ViewModel
 import com.filmo.service.AppRepository
@@ -12,19 +12,19 @@ import timber.log.Timber
 import javax.inject.Inject
 
 @HiltViewModel
-class FeedViewModel @Inject constructor(
+class TicketViewModel @Inject constructor(
     private val appRepository: AppRepository
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(FeedUiState())
-    val uiState: StateFlow<FeedUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(TicketViewUiState())
+    val uiState: StateFlow<TicketViewUiState> = _uiState.asStateFlow()
 
     suspend fun loadPublicTickets() {
         if (_uiState.value.isLoading) {
-            Timber.d("FeedViewModel.loadPublicTickets ignored: already loading")
+            Timber.d("TicketViewModel.loadPublicTickets ignored: already loading")
             return
         }
 
-        Timber.d("FeedViewModel.loadPublicTickets request")
+        Timber.d("TicketViewModel.loadPublicTickets request")
         _uiState.update {
             it.copy(
                 isLoading = true,
@@ -35,10 +35,10 @@ class FeedViewModel @Inject constructor(
         val result = appRepository.fetchPublicTickets()
         result
             .onSuccess { tickets ->
-                Timber.d("FeedViewModel.loadPublicTickets success count=%d", tickets.size)
+                Timber.d("TicketViewModel.loadPublicTickets success count=%d", tickets.size)
             }
             .onFailure {
-                Timber.w(it, "FeedViewModel.loadPublicTickets failed")
+                Timber.w(it, "TicketViewModel.loadPublicTickets failed")
             }
 
         _uiState.update { state ->
@@ -61,7 +61,7 @@ class FeedViewModel @Inject constructor(
     }
 }
 
-data class FeedUiState(
+data class TicketViewUiState(
     val tickets: List<PublicTicket> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null

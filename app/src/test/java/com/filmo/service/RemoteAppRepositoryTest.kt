@@ -109,45 +109,6 @@ class RemoteAppRepositoryTest {
     }
 
     @Test
-    fun fetchMyProfileMapsSwaggerMeResponse() = runBlocking {
-        val repository = RemoteAppRepository(
-            FakeApiService(
-                meResponse = """
-                    {
-                      "code": 200,
-                      "message": "OK",
-                      "data": {
-                        "id": 7,
-                        "loginId": "user7",
-                        "nickname": "인디콜렉터",
-                        "intro": "작은 극장을 자주 찾습니다.",
-                        "ticketCount": 12,
-                        "savedTicketCount": 8,
-                        "savedTheaterCount": 5
-                      }
-                    }
-                """.trimIndent()
-            )
-        )
-
-        val result = repository.fetchMyProfile()
-
-        assertTrue(result.isSuccess)
-        assertEquals(
-            UserProfile(
-                id = "7",
-                loginId = "user7",
-                nickname = "인디콜렉터",
-                intro = "작은 극장을 자주 찾습니다.",
-                ticketCount = 12,
-                savedTicketCount = 8,
-                savedTheaterCount = 5
-            ),
-            result.getOrThrow()
-        )
-    }
-
-    @Test
     fun fetchMovieCatalogMapsSwaggerMovieListResponse() = runBlocking {
         val repository = RemoteAppRepository(
             FakeApiService(
@@ -310,132 +271,6 @@ class RemoteAppRepositoryTest {
     }
 
     @Test
-    fun fetchTheatersMapsSwaggerTheaterPageResponse() = runBlocking {
-        val repository = RemoteAppRepository(
-            FakeApiService(
-                theatersResponse = """
-                    {
-                      "code": 200,
-                      "message": "OK",
-                      "data": {
-                        "content": [
-                          {
-                            "theaCd": "T001",
-                            "theaName": "인디스페이스",
-                            "scrnName": "1관",
-                            "screenGb": "독립영화관",
-                            "address": "서울",
-                            "phone": "02-000-0000",
-                            "homepage": "https://indiespace.kr",
-                            "seatCount": 100,
-                            "naverMapUrl": "https://map.naver.com"
-                          }
-                        ]
-                      }
-                    }
-                """.trimIndent()
-            )
-        )
-
-        val result = repository.fetchTheaters(keyword = "인디")
-
-        assertTrue(result.isSuccess)
-        assertEquals("T001", result.getOrThrow().single().id)
-        assertEquals("인디스페이스", result.getOrThrow().single().name)
-        assertEquals(100, result.getOrThrow().single().seatCount)
-    }
-
-    @Test
-    fun fetchTheaterPageMapsPaginationMetadataAndRequestsZeroBasedPage() = runBlocking {
-        val apiService = FakeApiService(
-            theatersResponse = """
-                {
-                  "code": 200,
-                  "message": "OK",
-                  "data": {
-                    "content": [
-                      {
-                        "theaCd": "T001",
-                        "theaName": "인디스페이스",
-                        "scrnName": "1관",
-                        "screenGb": "독립영화관",
-                        "address": "서울",
-                        "phone": "02-000-0000",
-                        "homepage": "https://indiespace.kr",
-                        "seatCount": 100,
-                        "naverMapUrl": "https://map.naver.com"
-                      }
-                    ],
-                    "last": false
-                  }
-                }
-            """.trimIndent()
-        )
-        val repository = RemoteAppRepository(apiService)
-
-        val result = repository.fetchTheaterPage(page = 0, size = 20)
-
-        assertTrue(result.isSuccess)
-        assertEquals(0, apiService.requestedTheaterPage)
-        assertEquals(20, apiService.requestedTheaterSize)
-        assertEquals(true, result.getOrThrow().hasMore)
-        assertEquals("인디스페이스", result.getOrThrow().items.single().name)
-    }
-
-    @Test
-    fun fetchTheaterMapsSwaggerTheaterResponse() = runBlocking {
-        val repository = RemoteAppRepository(
-            FakeApiService(
-                theaterResponse = """
-                    {
-                      "code": 200,
-                      "message": "OK",
-                      "data": {
-                        "theaCd": "T001",
-                        "theaName": "인디스페이스",
-                        "scrnName": "1관",
-                        "screenGb": "독립영화관",
-                        "address": "서울",
-                        "phone": "02-000-0000",
-                        "homepage": "https://indiespace.kr",
-                        "seatCount": 100,
-                        "naverMapUrl": "https://map.naver.com"
-                      }
-                    }
-                """.trimIndent()
-            )
-        )
-
-        val result = repository.fetchTheater("T001")
-
-        assertTrue(result.isSuccess)
-        assertEquals("인디스페이스", result.getOrThrow().name)
-        assertEquals("https://map.naver.com", result.getOrThrow().naverMapUrl)
-    }
-
-    @Test
-    fun saveTheaterCallsSwaggerSaveEndpoint() = runBlocking {
-        val apiService = FakeApiService()
-        val repository = RemoteAppRepository(apiService)
-
-        val result = repository.saveTheater("T001")
-
-        assertTrue(result.isSuccess)
-        assertEquals("T001", apiService.savedTheaterId)
-    }
-
-    @Test
-    fun removeSavedTheaterCallsSwaggerUnsaveEndpoint() = runBlocking {
-        val apiService = FakeApiService()
-        val repository = RemoteAppRepository(apiService)
-
-        val result = repository.removeSavedTheater("T001")
-
-        assertTrue(result.isSuccess)
-        assertEquals("T001", apiService.removedSavedTheaterId)
-    }
-
-    @Test
     fun fetchTicketCollectionReturnsMyTicketsWhenSavedTicketEndpointIsMissing() = runBlocking {
         val repository = RemoteAppRepository(
             FakeApiService(
@@ -588,8 +423,6 @@ class RemoteAppRepositoryTest {
         private val meResponse: String = """{"data":{"loginId":"user1","nickname":"로그인닉네임"}}""",
         private val moviesResponse: String = """{"data":{"content":[]}}""",
         private val movieDetailResponse: String = """{"data":{}}""",
-        private val theatersResponse: String = """{"data":{"content":[]}}""",
-        private val theaterResponse: String = """{"data":{}}""",
         private val ticketsResponse: String = """{"data":[]}""",
         private val publicTicketsResponse: String = """{"data":[]}"""
     ) : ApiService {
@@ -602,14 +435,6 @@ class RemoteAppRepositoryTest {
         var requestedMoviePage: Int? = null
             private set
         var requestedMovieSize: Int? = null
-            private set
-        var requestedTheaterPage: Int? = null
-            private set
-        var requestedTheaterSize: Int? = null
-            private set
-        var savedTheaterId: String? = null
-            private set
-        var removedSavedTheaterId: String? = null
             private set
         var createdTicketBody: String? = null
             private set
@@ -663,30 +488,6 @@ class RemoteAppRepositoryTest {
 
         override suspend fun fetchMovieImage(imagePath: String): ResponseBody =
             """image""".toResponseBody()
-
-        override suspend fun fetchTheaters(
-            keyword: String?,
-            page: Int,
-            size: Int,
-            sort: List<String>?
-        ): ResponseBody {
-            requestedTheaterPage = page
-            requestedTheaterSize = size
-            return theatersResponse.toResponseBody()
-        }
-
-        override suspend fun fetchTheater(theaCd: String): ResponseBody =
-            theaterResponse.toResponseBody()
-
-        override suspend fun saveTheater(theaCd: String): ResponseBody {
-            savedTheaterId = theaCd
-            return """{"data":"ok"}""".toResponseBody()
-        }
-
-        override suspend fun removeSavedTheater(theaCd: String): ResponseBody {
-            removedSavedTheaterId = theaCd
-            return """{"data":"ok"}""".toResponseBody()
-        }
 
         override suspend fun fetchTickets(): ResponseBody =
             ticketsResponse.toResponseBody()
