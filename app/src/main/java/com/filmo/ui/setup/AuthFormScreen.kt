@@ -50,9 +50,10 @@ internal fun AuthFormScreen(
     onRegenerateNicknameClick: () -> Unit,
     onBackToEntryChoice: () -> Unit,
     onSaveClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showBackToEntryChoice: Boolean = true
 ) {
-    BackHandler(enabled = !uiState.isSaving && !uiState.isCompleted) {
+    BackHandler(enabled = showBackToEntryChoice && !uiState.isSaving && !uiState.isCompleted) {
         onBackToEntryChoice()
     }
 
@@ -203,11 +204,13 @@ internal fun AuthFormScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        TextButton(
-            onClick = onBackToEntryChoice,
-            enabled = !uiState.isSaving
-        ) {
-            Text(text = "처음으로")
+        if (showBackToEntryChoice) {
+            TextButton(
+                onClick = onBackToEntryChoice,
+                enabled = !uiState.isSaving
+            ) {
+                Text(text = "처음으로")
+            }
         }
     }
 }

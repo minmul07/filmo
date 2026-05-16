@@ -4,7 +4,7 @@ data class InitialSetupUiState(
     val loginId: String = "",
     val password: String = "",
     val nickname: String = "",
-    val step: InitialSetupStep = InitialSetupStep.EntryChoice,
+    val step: InitialSetupStep = InitialSetupStep.Login,
     val isAutomaticNickname: Boolean = false,
     val isNicknameLoading: Boolean = false,
     val isSaving: Boolean = false,
@@ -27,13 +27,14 @@ data class InitialSetupUiState(
 
             return when (step) {
                 InitialSetupStep.EntryChoice -> false
-                InitialSetupStep.Signup -> isLoginIdValid && isPasswordValid && isNicknameValid
+                // Signup is intentionally unused in the login-only MVP.
+                InitialSetupStep.Signup -> false
                 InitialSetupStep.Login -> isLoginIdValid && isPasswordValid
             }
         }
 
     val shouldShowRegenerateButton: Boolean
-        get() = step == InitialSetupStep.Signup && isAutomaticNickname
+        get() = false
 
     val completionMessage: String
         get() = if (nickname.isBlank()) {
@@ -89,20 +90,21 @@ data class InitialSetupUiState(
     }
 
     fun toAutomaticNicknameLoading(): InitialSetupUiState {
+        // Signup nickname generation is intentionally unused in the login-only MVP.
         return copy(
-            step = InitialSetupStep.Signup,
-            isAutomaticNickname = true,
-            isNicknameLoading = true,
+            step = InitialSetupStep.Login,
+            isAutomaticNickname = false,
+            isNicknameLoading = false,
             hasNicknameLoadError = false,
             hasSaveError = false
         )
     }
 
     fun toAutomaticNicknameLoaded(nickname: String): InitialSetupUiState {
+        // Signup nickname generation is intentionally unused in the login-only MVP.
         return copy(
-            nickname = nickname,
-            step = InitialSetupStep.Signup,
-            isAutomaticNickname = true,
+            step = InitialSetupStep.Login,
+            isAutomaticNickname = false,
             isNicknameLoading = false,
             hasNicknameLoadError = false,
             hasSaveError = false
@@ -110,18 +112,20 @@ data class InitialSetupUiState(
     }
 
     fun toNicknameLoadFailure(): InitialSetupUiState {
+        // Signup nickname generation is intentionally unused in the login-only MVP.
         return copy(
-            step = InitialSetupStep.Signup,
-            isAutomaticNickname = true,
+            step = InitialSetupStep.Login,
+            isAutomaticNickname = false,
             isNicknameLoading = false,
-            hasNicknameLoadError = true
+            hasNicknameLoadError = false
         )
     }
 
     fun toManualNickname(): InitialSetupUiState {
+        // Manual signup is intentionally unused in the login-only MVP.
         return copy(
             nickname = "",
-            step = InitialSetupStep.Signup,
+            step = InitialSetupStep.Login,
             isAutomaticNickname = false,
             isNicknameLoading = false,
             hasNicknameLoadError = false,
@@ -141,8 +145,9 @@ data class InitialSetupUiState(
     }
 
     fun toBackToEntryChoice(): InitialSetupUiState {
+        // The entry choice page is intentionally unused; returning to setup keeps login visible.
         return copy(
-            step = InitialSetupStep.EntryChoice,
+            step = InitialSetupStep.Login,
             isAutomaticNickname = false,
             isNicknameLoading = false,
             isSaving = false,

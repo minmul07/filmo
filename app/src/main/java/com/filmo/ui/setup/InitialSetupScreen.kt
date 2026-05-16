@@ -48,42 +48,27 @@ fun InitialSetupScreen(
 
         InitialSetupCompletedPopup(uiState = uiState)
     } else {
-        when (uiState.step) {
-            InitialSetupStep.EntryChoice -> InitialSetupEntryChoiceScreen(
-                onAutoNicknameClick = onAutoNicknameClick,
-                onManualNicknameClick = onManualNicknameClick,
-                onLoginClick = onLoginClick,
-                modifier = modifier
-            )
-
-            InitialSetupStep.Signup -> AuthFormScreen(
-                uiState = uiState,
-                title = "계정 만들기",
-                description = "아이디와 비밀번호는 4자리 이상 입력해 주세요.",
-                submitText = if (uiState.isSaving) "가입 중..." else "시작하기",
-                onLoginIdChange = onLoginIdChange,
-                onPasswordChange = onPasswordChange,
-                onNicknameChange = onNicknameChange,
-                onRegenerateNicknameClick = onRegenerateNicknameClick,
-                onBackToEntryChoice = onBackToEntryChoice,
-                onSaveClick = onSaveClick,
-                modifier = modifier
-            )
-
-            InitialSetupStep.Login -> AuthFormScreen(
-                uiState = uiState,
-                title = "로그인",
-                description = "이미 만든 계정으로 독립영화 티켓북을 이어가세요.",
-                submitText = if (uiState.isSaving) "로그인 중..." else "로그인",
-                onLoginIdChange = onLoginIdChange,
-                onPasswordChange = onPasswordChange,
-                onNicknameChange = onNicknameChange,
-                onRegenerateNicknameClick = onRegenerateNicknameClick,
-                onBackToEntryChoice = onBackToEntryChoice,
-                onSaveClick = onSaveClick,
-                modifier = modifier
-            )
-        }
+        // Signup and entry-choice pages are intentionally unused in the login-only MVP.
+        AuthFormScreen(
+            uiState = uiState.copy(
+                nickname = "",
+                step = InitialSetupStep.Login,
+                isAutomaticNickname = false,
+                isNicknameLoading = false,
+                hasNicknameLoadError = false
+            ),
+            title = "로그인",
+            description = "이미 만든 계정으로 독립영화 티켓북을 이어가세요.",
+            submitText = if (uiState.isSaving) "로그인 중..." else "로그인",
+            onLoginIdChange = onLoginIdChange,
+            onPasswordChange = onPasswordChange,
+            onNicknameChange = onNicknameChange,
+            onRegenerateNicknameClick = onRegenerateNicknameClick,
+            onBackToEntryChoice = onBackToEntryChoice,
+            onSaveClick = onSaveClick,
+            showBackToEntryChoice = false,
+            modifier = modifier
+        )
     }
 }
 

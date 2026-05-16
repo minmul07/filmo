@@ -13,7 +13,6 @@ import kotlinx.coroutines.launch
 import com.filmo.service.AppRepository
 import com.filmo.service.LocalDisk
 import com.filmo.service.LoginRequest
-import com.filmo.service.SignupRequest
 import com.filmo.ui.setup.InitialSetupStep
 import com.filmo.ui.setup.InitialSetupUiState
 import timber.log.Timber
@@ -75,27 +74,15 @@ class MainViewModel @Inject constructor(
     }
 
     fun startAutomaticNicknameSetup() {
-        Timber.d("MainViewModel.startAutomaticNicknameSetup")
-        if (_initialSetupUiState.value.isNicknameLoading) return
-
-        _initialSetupUiState.value = _initialSetupUiState.value.toAutomaticNicknameLoading()
-        viewModelScope.launch {
-            appRepository.fetchRandomNickname().fold(
-                onSuccess = { nickname ->
-                    _initialSetupUiState.value = _initialSetupUiState.value
-                        .toAutomaticNicknameLoaded(nickname)
-                },
-                onFailure = { throwable ->
-                    Timber.w(throwable, "MainViewModel.startAutomaticNicknameSetup failed")
-                    _initialSetupUiState.value = _initialSetupUiState.value.toNicknameLoadFailure()
-                }
-            )
-        }
+        // Signup nickname generation is intentionally unused in the login-only MVP.
+        Timber.d("MainViewModel.startAutomaticNicknameSetup ignored: signup disabled")
+        _initialSetupUiState.value = _initialSetupUiState.value.toLogin()
     }
 
     fun startManualNicknameSetup() {
-        Timber.d("MainViewModel.startManualNicknameSetup")
-        _initialSetupUiState.value = _initialSetupUiState.value.toManualNickname()
+        // Manual signup is intentionally unused in the login-only MVP.
+        Timber.d("MainViewModel.startManualNicknameSetup ignored: signup disabled")
+        _initialSetupUiState.value = _initialSetupUiState.value.toLogin()
     }
 
     fun startLogin() {
@@ -104,7 +91,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun backToInitialSetupEntryChoice() {
-        Timber.d("MainViewModel.backToInitialSetupEntryChoice")
+        Timber.d("MainViewModel.backToInitialSetupEntryChoice ignored: entry choice disabled")
         _initialSetupUiState.value = _initialSetupUiState.value.toBackToEntryChoice()
     }
 
@@ -125,14 +112,6 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             val savedState = _initialSetupUiState.value
             val result = when (savedState.step) {
-                InitialSetupStep.Signup -> appRepository.signUp(
-                    SignupRequest(
-                        loginId = savedState.loginId,
-                        password = savedState.password,
-                        nickname = savedState.nickname
-                    )
-                )
-
                 InitialSetupStep.Login -> appRepository.login(
                     LoginRequest(
                         loginId = savedState.loginId,
@@ -140,6 +119,8 @@ class MainViewModel @Inject constructor(
                     )
                 )
 
+                // Signup is intentionally unused in the login-only MVP.
+                InitialSetupStep.Signup -> Result.failure(IllegalStateException("Signup is disabled"))
                 InitialSetupStep.EntryChoice -> Result.failure(IllegalStateException("Invalid setup step"))
             }
 

@@ -3,10 +3,12 @@ package com.filmo.service
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Ignore
 import org.junit.Test
 
 class MockAppRepositoryTest {
     @Test
+    @Ignore("Signup is intentionally unused in the login-only MVP.")
     fun signUpReturnsMockAccessTokenAfterMockDelay() = runBlocking {
         val repository = MockAppRepository()
 

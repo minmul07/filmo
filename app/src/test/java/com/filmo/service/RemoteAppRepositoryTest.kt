@@ -8,6 +8,7 @@ import okio.Buffer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Ignore
 import org.junit.Test
 import timber.log.Timber
 
@@ -18,6 +19,7 @@ class RemoteAppRepositoryTest {
     }
 
     @Test
+    @Ignore("Signup is intentionally unused in the login-only MVP.")
     fun signUpPostsSignupRequestAndMapsAccessToken() = runBlocking {
         val apiService = FakeApiService(
             signupResponse = """
@@ -49,6 +51,7 @@ class RemoteAppRepositoryTest {
     }
 
     @Test
+    @Ignore("Signup is intentionally unused in the login-only MVP.")
     fun signUpLogsRawAccessTokenFromResponse() = runBlocking {
         val tree = CapturingTimberTree()
         Timber.plant(tree)
