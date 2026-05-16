@@ -103,7 +103,7 @@ fun MainScreen(
                 .fillMaxSize()
                 .padding(
                     start = safeDrawingPadding.calculateStartPadding(layoutDirection),
-                    top = safeDrawingPadding.calculateTopPadding(),
+                    top = 0.dp,
                     end = safeDrawingPadding.calculateEndPadding(layoutDirection),
                     bottom = navDisplayBottomPadding
                 )

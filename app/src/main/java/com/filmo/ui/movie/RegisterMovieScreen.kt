@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.filmo.service.MovieCatalogItem
+import com.filmo.ui.component.FilmoTopBar
 import com.filmo.ui.theme.FilmoTheme
 import kotlinx.coroutines.launch
 
@@ -179,12 +180,7 @@ internal fun RegisterMovieHeader(
     onClose: () -> Unit = {}
 ) {
     if (step == RegisterMovieStep.MovieSearch) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            contentAlignment = Alignment.CenterStart
-        ) {
+        FilmoTopBar(horizontalPadding = 0.dp) {
             Text(
                 text = registerMovieHeaderTitle(step),
                 style = MaterialTheme.typography.headlineSmall,
@@ -194,45 +190,48 @@ internal fun RegisterMovieHeader(
         return
     }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp),
-        verticalAlignment = Alignment.CenterVertically
+    FilmoTopBar(
+        horizontalPadding = 0.dp,
+        contentAlignment = Alignment.Center
     ) {
-        if (shouldShowRegisterMovieBackButton(step)) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "뒤로가기"
-                )
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (shouldShowRegisterMovieBackButton(step)) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "뒤로가기"
+                    )
+                }
+            } else {
+                Box(modifier = Modifier.width(48.dp))
             }
-        } else {
-            Box(modifier = Modifier.width(48.dp))
-        }
-        Text(
-            text = registerMovieHeaderTitle(step),
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.titleLarge,
-            textAlign = TextAlign.Center
-        )
-        if (shouldShowRegisterMovieCloseButton(step)) {
-            IconButton(onClick = onClose) {
-                Icon(
-                    imageVector = Icons.Filled.Close,
-                    contentDescription = "닫기"
-                )
-            }
-        } else if (step == RegisterMovieStep.MovieInfo || step == RegisterMovieStep.Share) {
-            Box(modifier = Modifier.width(48.dp))
-        } else {
             Text(
-                text = "${step.index}/4",
-                modifier = Modifier.width(48.dp),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = registerMovieHeaderTitle(step),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleLarge,
                 textAlign = TextAlign.Center
             )
+            if (shouldShowRegisterMovieCloseButton(step)) {
+                IconButton(onClick = onClose) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = "닫기"
+                    )
+                }
+            } else if (step == RegisterMovieStep.MovieInfo || step == RegisterMovieStep.Share) {
+                Box(modifier = Modifier.width(48.dp))
+            } else {
+                Text(
+                    text = "${step.index}/4",
+                    modifier = Modifier.width(48.dp),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }

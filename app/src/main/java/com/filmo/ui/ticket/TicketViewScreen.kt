@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.filmo.service.PublicTicket
+import com.filmo.ui.component.FilmoTopBar
 import com.filmo.ui.movie.MoviePosterImage
 import com.filmo.ui.movie.toMovieImageUrl
 import com.filmo.ui.theme.FilmoTheme
@@ -180,14 +181,7 @@ private fun TicketViewContent(
 private fun TicketViewTopBar(
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(56.dp)
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(horizontal = 16.dp),
-        contentAlignment = Alignment.CenterStart
-    ) {
+    FilmoTopBar(modifier = modifier) {
         Text(
             text = "티켓보기",
             modifier = Modifier.semantics { heading() },
