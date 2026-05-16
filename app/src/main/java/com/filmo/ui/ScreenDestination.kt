@@ -15,4 +15,7 @@ sealed interface ScreenDestination : NavKey {
 
     @Serializable
     data object Collection : ScreenDestination
+
+    @Serializable
+    data object Profile: ScreenDestination
 }

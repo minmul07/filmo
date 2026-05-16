@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
@@ -38,6 +39,7 @@ import com.filmo.ui.ScreenDestination
 import com.filmo.ui.collection.CollectionScreen
 import com.filmo.ui.feed.FeedScreen
 import com.filmo.ui.movie.RegisterMovieScreen
+import com.filmo.ui.profile.ProfileScreen
 import com.filmo.ui.theater.TheaterFinderScreen
 
 @Composable
@@ -112,6 +114,10 @@ fun MainScreen(
                 entry<ScreenDestination.Collection> {
                     CollectionScreen()
                 }
+
+                entry<ScreenDestination.Profile> {
+                    ProfileScreen()
+                }
             }
         )
     }
@@ -176,6 +182,11 @@ private val TopLevelDestinations = listOf(
     TopLevelDestination(
         destination = ScreenDestination.Collection,
         label = "컬렉션",
+        icon = Icons.Filled.Bookmark
+    ),
+    TopLevelDestination(
+        destination = ScreenDestination.Profile,
+        label = "프로필",
         icon = Icons.Filled.Person
     )
 )
