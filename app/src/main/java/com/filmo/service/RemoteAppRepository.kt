@@ -1,5 +1,12 @@
 package com.filmo.service
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import javax.inject.Inject
 
 class RemoteAppRepository @Inject constructor(
@@ -32,90 +39,146 @@ class RemoteAppRepository @Inject constructor(
         )
     }
 
-    override suspend fun fetchMovieCatalog(): Result<List<MovieCatalogItem>> = runCatching {
-        listOf(
-            MovieCatalogItem(
-                id = "decision-to-leave",
-                title = "헤어질 결심",
-                releaseYear = 2022,
-                director = "박찬욱",
-                genre = "로맨스/드라마"
-            ),
-            MovieCatalogItem(
-                id = "moonlit-winter",
-                title = "윤희에게",
-                releaseYear = 2019,
-                director = "임대형",
-                genre = "드라마"
-            ),
-            MovieCatalogItem(
-                id = "house-of-hummingbird",
-                title = "벌새",
-                releaseYear = 2018,
-                director = "김보라",
-                genre = "드라마"
-            ),
-            MovieCatalogItem(
-                id = "microhabitat",
-                title = "소공녀",
-                releaseYear = 2017,
-                director = "전고운",
-                genre = "드라마"
-            )
+    override suspend fun fetchMovieCatalog(
+        keyword: String?,
+        genre: String?,
+        year: String?,
+        page: Int,
+        size: Int
+    ): Result<List<MovieCatalogItem>> = runCatching {
+        val response = apiService.fetchMovies(
+            keyword = keyword,
+            genre = genre,
+            year = year,
+            page = page,
+            size = size
         )
+        JsonParser.parseToJsonElement(response.string())
+            .jsonObject
+            .dataObject()
+            .array("content")
+            .map { it.jsonObject.toMovieCatalogItem() }
+    }
+
+    override suspend fun fetchMovieDetail(movieId: String): Result<MovieDetail> = runCatching {
+        val seq = movieId.toLongOrNull() ?: error("Invalid movie id")
+        JsonParser.parseToJsonElement(apiService.fetchMovie(seq).string())
+            .jsonObject
+            .dataObject()
+            .toMovieDetail()
+    }
+
+    override suspend fun fetchTheaters(
+        keyword: String?,
+        page: Int,
+        size: Int
+    ): Result<List<Theater>> = runCatching {
+        JsonParser.parseToJsonElement(
+            apiService.fetchTheaters(
+                keyword = keyword,
+                page = page,
+                size = size
+            ).string()
+        )
+            .jsonObject
+            .dataObject()
+            .array("content")
+            .map { it.jsonObject.toTheater() }
+    }
+
+    override suspend fun fetchTheater(theaterId: String): Result<Theater> = runCatching {
+        JsonParser.parseToJsonElement(apiService.fetchTheater(theaterId).string())
+            .jsonObject
+            .dataObject()
+            .toTheater()
     }
 
     override suspend fun fetchTicketCollection(): Result<TicketCollection> = runCatching {
-        // TODO: Replace with backend endpoint when the ticket collection API is specified.
-        TicketCollection(
-            myTickets = listOf(
-                MovieTicket(
-                    id = "my-ticket-1",
-                    movieTitle = "과속스캔들",
-                    theaterName = "서울아트시네마",
-                    watchedDate = "2024-03-20",
-                    rating = 4,
-                    review = "유쾌하고 따뜻한 영화였어요",
-                    ownedByMe = true,
-                    savedByMe = false
-                )
-            ),
-            savedTickets = listOf(
-                MovieTicket(
-                    id = "saved-ticket-1",
-                    movieTitle = "헤어질 결심",
-                    theaterName = "인디스페이스",
-                    watchedDate = "2024-03-15",
-                    rating = 5,
-                    review = "영상미가 압도적이었습니다",
-                    ownedByMe = false,
-                    savedByMe = true
-                )
-            )
-        )
+        error("Ticket collection API is not specified in Swagger.")
     }
 
     override suspend fun updateMyTicket(request: UpdateTicketRequest): Result<MovieTicket> = runCatching {
-        // TODO: Replace with backend endpoint when the ticket update API is specified.
-        MovieTicket(
-            id = request.ticketId,
-            movieTitle = "과속스캔들",
-            theaterName = request.theaterName,
-            watchedDate = request.watchedDate,
-            rating = request.rating,
-            review = request.review,
-            ownedByMe = true,
-            savedByMe = false
-        )
+        error("Ticket update API is not specified in Swagger.")
     }
 
     override suspend fun deleteMyTicket(ticketId: String): Result<Unit> = runCatching {
-        // TODO: Replace with backend endpoint when the ticket delete API is specified.
-        Unit
+        error("Ticket delete API is not specified in Swagger.")
     }
 
     override suspend fun removeSavedTicket(ticketId: String): Result<Unit> = runCatching {
-        // TODO: Replace with backend endpoint when the saved ticket API is specified.
-        Unit
+        error("Saved ticket delete API is not specified in Swagger.")
+    }
+
+    private fun JsonObject.toMovieCatalogItem(): MovieCatalogItem {
+        return MovieCatalogItem(
+            id = string("seq"),
+            title = string("korTitle"),
+            releaseYear = intFromString("productionYear"),
+            director = string("director"),
+            genre = string("genreName"),
+            englishTitle = string("engTitle"),
+            imagePath = string("imagePath")
+        )
+    }
+
+    private fun JsonObject.toMovieDetail(): MovieDetail {
+        return MovieDetail(
+            id = string("seq"),
+            title = string("korTitle"),
+            englishTitle = string("engTitle"),
+            director = string("director"),
+            actors = string("actors"),
+            releaseYear = intFromString("productionYear"),
+            genre = string("genreName"),
+            companyName = string("companyNm"),
+            distributorName = string("distributorNm"),
+            imagePath = string("imagePath"),
+            duration = string("duration"),
+            rating = string("rating"),
+            colorType = string("colorType"),
+            synopsis = string("synopsis"),
+            screenwriter = string("screenwriter"),
+            producer = string("producer"),
+            releaseDate = string("releaseDate"),
+            keywords = string("keywords")
+        )
+    }
+
+    private fun JsonObject.toTheater(): Theater {
+        return Theater(
+            id = string("theaCd"),
+            name = string("theaName"),
+            screenName = string("scrnName"),
+            screenType = string("screenGb"),
+            address = string("address"),
+            phone = string("phone"),
+            homepage = string("homepage"),
+            seatCount = int("seatCount"),
+            naverMapUrl = string("naverMapUrl")
+        )
+    }
+
+    private fun JsonObject.dataObject(): JsonObject {
+        return this["data"]?.jsonObject ?: error("Missing data")
+    }
+
+    private fun JsonObject.array(name: String): JsonArray {
+        return this[name]?.jsonArray ?: JsonArray(emptyList())
+    }
+
+    private fun JsonObject.string(name: String): String {
+        return this[name]?.jsonPrimitive?.contentOrNull.orEmpty()
+    }
+
+    private fun JsonObject.int(name: String): Int {
+        return string(name).toIntOrNull() ?: 0
+    }
+
+    private fun JsonObject.intFromString(name: String): Int {
+        return string(name).toIntOrNull() ?: 0
+    }
+
+    private companion object {
+        val JsonParser = Json { ignoreUnknownKeys = true }
     }
 }

@@ -71,6 +71,38 @@ class RemoteDebugAuthTestClientTest {
                 }
             """.trimIndent().toJsonResponseBody()
         }
+
+        override suspend fun fetchMovies(
+            keyword: String?,
+            genre: String?,
+            year: String?,
+            page: Int,
+            size: Int,
+            sort: List<String>?
+        ): ResponseBody {
+            error("Not needed in this test")
+        }
+
+        override suspend fun fetchMovie(seq: Long): ResponseBody {
+            error("Not needed in this test")
+        }
+
+        override suspend fun fetchMovieImage(imagePath: String): ResponseBody {
+            error("Not needed in this test")
+        }
+
+        override suspend fun fetchTheaters(
+            keyword: String?,
+            page: Int,
+            size: Int,
+            sort: List<String>?
+        ): ResponseBody {
+            error("Not needed in this test")
+        }
+
+        override suspend fun fetchTheater(theaCd: String): ResponseBody {
+            error("Not needed in this test")
+        }
     }
 
     private companion object {

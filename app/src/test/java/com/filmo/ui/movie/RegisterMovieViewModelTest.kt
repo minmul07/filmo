@@ -2,9 +2,11 @@ package com.filmo.ui.movie
 
 import com.filmo.service.AppRepository
 import com.filmo.service.MovieCatalogItem
+import com.filmo.service.MovieDetail
 import com.filmo.service.MovieTicket
 import com.filmo.service.SampleItem
 import com.filmo.service.SampleItemRequest
+import com.filmo.service.Theater
 import com.filmo.service.TicketCollection
 import com.filmo.service.UpdateTicketRequest
 import kotlinx.coroutines.runBlocking
@@ -196,8 +198,30 @@ class RegisterMovieViewModelTest {
             )
         }
 
-        override suspend fun fetchMovieCatalog(): Result<List<MovieCatalogItem>> {
+        override suspend fun fetchMovieCatalog(
+            keyword: String?,
+            genre: String?,
+            year: String?,
+            page: Int,
+            size: Int
+        ): Result<List<MovieCatalogItem>> {
             return Result.success(FakeMovies)
+        }
+
+        override suspend fun fetchMovieDetail(movieId: String): Result<MovieDetail> {
+            return Result.failure(UnsupportedOperationException("Not needed in this test"))
+        }
+
+        override suspend fun fetchTheaters(
+            keyword: String?,
+            page: Int,
+            size: Int
+        ): Result<List<Theater>> {
+            return Result.success(emptyList())
+        }
+
+        override suspend fun fetchTheater(theaterId: String): Result<Theater> {
+            return Result.failure(UnsupportedOperationException("Not needed in this test"))
         }
 
         override suspend fun fetchTicketCollection(): Result<TicketCollection> {

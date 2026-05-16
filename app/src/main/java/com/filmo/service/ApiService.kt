@@ -7,7 +7,9 @@ import retrofit2.http.Field
 import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.Path
 import retrofit2.http.POST
+import retrofit2.http.Query
 
 interface ApiService {
     @GET("health")
@@ -31,5 +33,38 @@ interface ApiService {
     @GET("auth-test")
     suspend fun authTest(
         @Header("Authorization") authorization: String
+    ): ResponseBody
+
+    @GET("api/movies")
+    suspend fun fetchMovies(
+        @Query("keyword") keyword: String? = null,
+        @Query("genre") genre: String? = null,
+        @Query("year") year: String? = null,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+        @Query("sort") sort: List<String>? = null
+    ): ResponseBody
+
+    @GET("api/movies/{seq}")
+    suspend fun fetchMovie(
+        @Path("seq") seq: Long
+    ): ResponseBody
+
+    @GET("api/movies/image/{imagePath}")
+    suspend fun fetchMovieImage(
+        @Path("imagePath", encoded = true) imagePath: String
+    ): ResponseBody
+
+    @GET("api/theaters")
+    suspend fun fetchTheaters(
+        @Query("keyword") keyword: String? = null,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+        @Query("sort") sort: List<String>? = null
+    ): ResponseBody
+
+    @GET("api/theaters/{theaCd}")
+    suspend fun fetchTheater(
+        @Path("theaCd") theaCd: String
     ): ResponseBody
 }

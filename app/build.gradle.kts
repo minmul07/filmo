@@ -22,8 +22,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "API_BASE_URL", "\"http://3.34.97.209:8080/\"")
-        buildConfigField("Boolean", "USE_MOCK_REPOSITORY", "true")
+        buildConfigField("String", "API_BASE_URL", "\"https://filmo-api.log8.kr/\"")
+        buildConfigField("Boolean", "USE_MOCK_REPOSITORY", "false")
     }
 
     buildTypes {
