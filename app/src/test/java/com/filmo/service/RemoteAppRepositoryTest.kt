@@ -496,6 +496,70 @@ class RemoteAppRepositoryTest {
     }
 
     @Test
+    fun fetchPublicTicketsMapsPublicTicketResponseAndRequestsLatestSort() = runBlocking {
+        val apiService = FakeApiService(
+            publicTicketsResponse = """
+                {
+                  "code": 200,
+                  "message": "OK",
+                  "data": [
+                    {
+                      "id": 201,
+                      "movieSeq": 1001,
+                      "watchedDate": "2026-05-16",
+                      "watchedTime": "19:30",
+                      "cinema": "인디스페이스",
+                      "review": "작고 단단한 영화였어요",
+                      "showYn": true,
+                      "createdAt": "2026-05-16T13:51:52.335Z",
+                      "updatedAt": "2026-05-16T13:51:52.335Z"
+                    }
+                  ]
+                }
+            """.trimIndent(),
+            movieDetailResponse = """
+                {
+                  "code": 200,
+                  "message": "OK",
+                  "data": {
+                    "seq": 1001,
+                    "korTitle": "테스트 영화",
+                    "engTitle": "Test Film",
+                    "director": "테스트 감독",
+                    "productionYear": "2024",
+                    "genreName": "드라마",
+                    "imagePath": "poster.jpg",
+                    "duration": "100분"
+                  }
+                }
+            """.trimIndent()
+        )
+        val repository = RemoteAppRepository(apiService)
+
+        val result = repository.fetchPublicTickets()
+
+        assertTrue(result.isSuccess)
+        assertEquals("latest", apiService.requestedPublicTicketSort)
+        assertEquals(
+            PublicTicket(
+                id = "201",
+                movieSeq = "1001",
+                movieTitle = "테스트 영화",
+                genre = "드라마",
+                director = "테스트 감독",
+                releaseYear = 2024,
+                duration = "100분",
+                posterImagePath = "poster.jpg",
+                theaterName = "인디스페이스",
+                watchedDate = "2026-05-16",
+                watchedTime = "19:30",
+                review = "작고 단단한 영화였어요"
+            ),
+            result.getOrThrow().single()
+        )
+    }
+
+    @Test
     fun createTicketPostsSwaggerTicketRequest() = runBlocking {
         val apiService = FakeApiService()
         val repository = RemoteAppRepository(apiService)
@@ -526,7 +590,8 @@ class RemoteAppRepositoryTest {
         private val movieDetailResponse: String = """{"data":{}}""",
         private val theatersResponse: String = """{"data":{"content":[]}}""",
         private val theaterResponse: String = """{"data":{}}""",
-        private val ticketsResponse: String = """{"data":[]}"""
+        private val ticketsResponse: String = """{"data":[]}""",
+        private val publicTicketsResponse: String = """{"data":[]}"""
     ) : ApiService {
         var signupBody: String? = null
             private set
@@ -547,6 +612,8 @@ class RemoteAppRepositoryTest {
         var removedSavedTheaterId: String? = null
             private set
         var createdTicketBody: String? = null
+            private set
+        var requestedPublicTicketSort: String? = null
             private set
 
         override suspend fun ping(): ResponseBody = """{"data":null}""".toResponseBody()
@@ -623,6 +690,11 @@ class RemoteAppRepositoryTest {
 
         override suspend fun fetchTickets(): ResponseBody =
             ticketsResponse.toResponseBody()
+
+        override suspend fun fetchPublicTickets(sort: String): ResponseBody {
+            requestedPublicTicketSort = sort
+            return publicTicketsResponse.toResponseBody()
+        }
 
         override suspend fun createTicket(body: RequestBody): ResponseBody {
             val buffer = Buffer()

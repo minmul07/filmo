@@ -1,6 +1,12 @@
 package com.filmo.ui.movie
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,18 +19,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -34,6 +33,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -44,14 +44,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.filmo.service.MovieCatalogItem
 import com.filmo.ui.theme.FilmoTheme
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.ZoneId
 
 @Composable
 fun RegisterMovieScreen(
     viewModel: RegisterMovieViewModel = hiltViewModel(),
     modifier: Modifier = Modifier,
     searchBottomPadding: Dp = 0.dp,
+    onFullScreenStepVisibilityChange: (Boolean) -> Unit = {},
     onBack: () -> Unit = {},
     onNavigateToCollection: () -> Unit = {}
 ) {
@@ -76,6 +75,7 @@ fun RegisterMovieScreen(
         uiState = uiState,
         modifier = modifier,
         searchBottomPadding = searchBottomPadding,
+        onFullScreenStepVisibilityChange = onFullScreenStepVisibilityChange,
         onSearchQueryChange = viewModel::updateSearchQuery,
         onLoadMovies = {
             coroutineScope.launch {
@@ -91,7 +91,6 @@ fun RegisterMovieScreen(
             viewModel.selectMovie(movie)
         },
         onReleaseDateChange = viewModel::updateReleaseDateMillis,
-        onTheaterNameChange = viewModel::updateTheaterName,
         onRatingChange = viewModel::updateRating,
         onReviewChange = viewModel::updateReview,
         onNext = viewModel::goToNextStep,
@@ -106,52 +105,60 @@ fun RegisterMovieScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RegisterMovieContent(
     uiState: RegisterMovieUiState,
     modifier: Modifier = Modifier,
     searchBottomPadding: Dp = 0.dp,
+    onFullScreenStepVisibilityChange: (Boolean) -> Unit = {},
     onSearchQueryChange: (String) -> Unit = {},
     onLoadMovies: () -> Unit = {},
     onLoadNextMovies: () -> Unit = {},
     onMovieClick: (MovieCatalogItem) -> Unit = {},
     onReleaseDateChange: (Long?) -> Unit = {},
-    onTheaterNameChange: (String) -> Unit = {},
     onRatingChange: (Int) -> Unit = {},
     onReviewChange: (String) -> Unit = {},
     onNext: () -> Unit = {},
     onBack: () -> Unit = {},
     onShareClick: () -> Unit = {}
 ) {
-    var isDatePickerOpen by remember { mutableStateOf(false) }
     val posterImageCache = rememberMoviePosterBitmapSessionCache()
-    val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = uiState.releaseDateMillis,
-        selectableDates = rememberPastOrTodaySelectableDates()
-    )
+    val fullScreenStep = uiState.step.takeIf(::isFullScreenStepVisible)
+    var latestFullScreenStep by remember { mutableStateOf(fullScreenStep) }
+    val fullScreenStepTransitionState = remember {
+        MutableTransitionState(initialState = fullScreenStep != null)
+    }
 
-    LaunchedEffect(uiState.releaseDateMillis) {
-        if (datePickerState.selectedDateMillis != uiState.releaseDateMillis) {
-            datePickerState.selectedDateMillis = uiState.releaseDateMillis
+    LaunchedEffect(fullScreenStep) {
+        if (fullScreenStep != null) {
+            latestFullScreenStep = fullScreenStep
         }
+        fullScreenStepTransitionState.targetState = fullScreenStep != null
+    }
+    val isFullScreenStepMounted = fullScreenStep != null ||
+        fullScreenStepTransitionState.currentState ||
+        fullScreenStepTransitionState.targetState
+
+    LaunchedEffect(isFullScreenStepMounted) {
+        onFullScreenStepVisibilityChange(isFullScreenStepMounted)
     }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0.dp)
     ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 24.dp)
                     .padding(bottom = searchBottomPadding)
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(horizontal = 24.dp)
             ) {
                 RegisterMovieHeader(
                     step = RegisterMovieStep.MovieSearch,
@@ -172,35 +179,39 @@ private fun RegisterMovieContent(
                 )
             }
 
-            if (uiState.step != RegisterMovieStep.MovieSearch) {
-                Column(
+            if (isFullScreenStepMounted) {
+                AnimatedVisibility(
+                    visibleState = fullScreenStepTransitionState,
                     modifier = Modifier
                         .fillMaxSize()
-                        .zIndex(1f)
-                        .background(MaterialTheme.colorScheme.background)
-                        .padding(horizontal = 24.dp)
+                        .zIndex(1f),
+                    enter = slideInVertically(
+                        animationSpec = tween(
+                            durationMillis = FullScreenStepEnterDurationMillis,
+                            easing = FullScreenStepEnterEasing
+                        ),
+                        initialOffsetY = ::fullScreenStepEnterOffsetY
+                    ),
+                    exit = slideOutVertically(
+                        animationSpec = tween(
+                            durationMillis = FullScreenStepExitDurationMillis,
+                            easing = FullScreenStepExitEasing
+                        ),
+                        targetOffsetY = ::fullScreenStepExitOffsetY
+                    ),
+                    label = "register_movie_step"
                 ) {
-                    RegisterMovieHeader(
-                        step = uiState.step,
-                        onBack = onBack
-                    )
-
-                    when (uiState.step) {
-                        RegisterMovieStep.MovieSearch -> Unit
-                        RegisterMovieStep.MovieInfo -> MovieInfoStep(
+                    val step = fullScreenStep ?: latestFullScreenStep
+                    if (step != null) {
+                        RegisterMovieFullScreenStep(
+                            step = step,
                             uiState = uiState,
-                            errorMessage = uiState.errorMessage,
                             posterImageCache = posterImageCache,
-                            onReleaseDateClick = { isDatePickerOpen = true },
-                            onTheaterNameChange = onTheaterNameChange,
+                            onBack = onBack,
+                            onReleaseDateChange = onReleaseDateChange,
                             onRatingChange = onRatingChange,
                             onReviewChange = onReviewChange,
-                            onNext = onNext
-                        )
-
-                        RegisterMovieStep.Share -> TicketShareStep(
-                            uiState = uiState,
-                            posterImageCache = posterImageCache,
+                            onNext = onNext,
                             onShareClick = onShareClick
                         )
                     }
@@ -208,33 +219,89 @@ private fun RegisterMovieContent(
             }
         }
     }
+}
 
-    if (isDatePickerOpen) {
-        DatePickerDialog(
-            onDismissRequest = { isDatePickerOpen = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onReleaseDateChange(datePickerState.selectedDateMillis)
-                        isDatePickerOpen = false
-                    }
-                ) {
-                    Text("확인")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { isDatePickerOpen = false }) {
-                    Text("취소")
-                }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
+@Composable
+private fun RegisterMovieFullScreenStep(
+    step: RegisterMovieStep,
+    uiState: RegisterMovieUiState,
+    posterImageCache: MoviePosterBitmapSessionCache,
+    onBack: () -> Unit,
+    onReleaseDateChange: (Long?) -> Unit,
+    onRatingChange: (Int) -> Unit,
+    onReviewChange: (String) -> Unit,
+    onNext: () -> Unit,
+    onShareClick: () -> Unit
+) {
+    when (step) {
+        RegisterMovieStep.MovieSearch -> Unit
+        RegisterMovieStep.MovieInfo -> ViewingInfoScreen(
+            uiState = uiState,
+            posterImageCache = posterImageCache,
+            onBack = onBack,
+            onReleaseDateChange = onReleaseDateChange,
+            onRatingChange = onRatingChange,
+            onReviewChange = onReviewChange,
+            onNext = onNext
+        )
+
+        RegisterMovieStep.Share -> TicketShareScreen(
+            uiState = uiState,
+            posterImageCache = posterImageCache,
+            onBack = onBack,
+            onShareClick = onShareClick
+        )
     }
 }
 
 @Composable
-private fun RegisterMovieHeader(
+private fun TicketShareScreen(
+    uiState: RegisterMovieUiState,
+    posterImageCache: MoviePosterBitmapSessionCache,
+    onBack: () -> Unit,
+    onShareClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = 24.dp)
+    ) {
+        RegisterMovieHeader(
+            step = RegisterMovieStep.Share,
+            onBack = onBack
+        )
+
+        TicketShareStep(
+            uiState = uiState,
+            posterImageCache = posterImageCache,
+            onShareClick = onShareClick
+        )
+    }
+}
+
+internal fun isViewingInfoScreenStep(step: RegisterMovieStep): Boolean {
+    return step == RegisterMovieStep.MovieInfo
+}
+
+internal fun shouldCoverBottomBar(step: RegisterMovieStep): Boolean {
+    return isViewingInfoScreenStep(step) || step == RegisterMovieStep.Share
+}
+
+internal fun isFullScreenStepVisible(step: RegisterMovieStep): Boolean {
+    return shouldCoverBottomBar(step)
+}
+
+internal fun fullScreenStepEnterOffsetY(fullHeight: Int): Int {
+    return fullHeight
+}
+
+internal fun fullScreenStepExitOffsetY(fullHeight: Int): Int {
+    return fullHeight
+}
+
+@Composable
+internal fun RegisterMovieHeader(
     step: RegisterMovieStep,
     onBack: () -> Unit
 ) {
@@ -257,12 +324,7 @@ private fun RegisterMovieHeader(
             textAlign = TextAlign.Center
         )
         if (step == RegisterMovieStep.MovieInfo || step == RegisterMovieStep.Share) {
-            IconButton(onClick = {}) {
-                Icon(
-                    imageVector = Icons.Filled.MoreHoriz,
-                    contentDescription = "더보기"
-                )
-            }
+            Box(modifier = Modifier.width(48.dp))
         } else {
             Text(
                 text = "${step.index}/4",
@@ -271,26 +333,6 @@ private fun RegisterMovieHeader(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun rememberPastOrTodaySelectableDates(): SelectableDates {
-    val todayEndMillis = remember {
-        LocalDate.now()
-            .plusDays(1)
-            .atStartOfDay(ZoneId.systemDefault())
-            .toInstant()
-            .toEpochMilli() - 1L
-    }
-
-    return remember(todayEndMillis) {
-        object : SelectableDates {
-            override fun isSelectableDate(utcTimeMillis: Long): Boolean {
-                return utcTimeMillis <= todayEndMillis
-            }
         }
     }
 }
@@ -308,6 +350,11 @@ private val RegisterMovieStep.index: Int
         RegisterMovieStep.MovieInfo -> 2
         RegisterMovieStep.Share -> 2
     }
+
+private const val FullScreenStepEnterDurationMillis = 400
+private const val FullScreenStepExitDurationMillis = 300
+private val FullScreenStepEnterEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)
+private val FullScreenStepExitEasing = CubicBezierEasing(0.3f, 0.0f, 0.8f, 0.15f)
 
 @Preview(showBackground = true)
 @Composable

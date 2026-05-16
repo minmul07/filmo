@@ -101,5 +101,5 @@ internal fun ErrorText(errorMessage: String?) {
     )
 }
 
-internal val RatingSelectedColor = Color(0xFF7887CF)
+internal val RatingSelectedColor = Color(0xFF6880D0)
 internal val RatingUnselectedColor = Color(0xFFDCDCDC)

@@ -316,6 +316,18 @@ class RemoteAppRepository @Inject constructor(
         Timber.w(it, "RemoteAppRepository.fetchTicketCollection failed")
     }
 
+    override suspend fun fetchPublicTickets(sort: String): Result<List<PublicTicket>> = runCatching {
+        Timber.d("RemoteAppRepository.fetchPublicTickets request sort=%s", sort)
+        JsonParser.parseToJsonElement(apiService.fetchPublicTickets(sort = sort).string())
+            .jsonObject
+            .dataArray()
+            .map { it.jsonObject.toPublicTicket() }
+    }.onSuccess { tickets ->
+        Timber.d("RemoteAppRepository.fetchPublicTickets success count=%d", tickets.size)
+    }.onFailure {
+        Timber.w(it, "RemoteAppRepository.fetchPublicTickets failed")
+    }
+
     override suspend fun createTicket(request: CreateTicketRequest): Result<Unit> = runCatching {
         Timber.d(
             "RemoteAppRepository.createTicket request movieId=%s watchedDateLength=%d cinemaLength=%d reviewLength=%d",
@@ -458,6 +470,25 @@ class RemoteAppRepository @Inject constructor(
         )
     }
 
+    private suspend fun JsonObject.toPublicTicket(): PublicTicket {
+        val movieSeq = string("movieSeq")
+        val movieDetail = fetchMovieDetailOrNull(movieSeq)
+        return PublicTicket(
+            id = string("id"),
+            movieSeq = movieSeq,
+            movieTitle = movieDetail?.title?.ifBlank { "영화 #$movieSeq" } ?: "영화 #$movieSeq",
+            genre = movieDetail?.genre.orEmpty(),
+            director = movieDetail?.director.orEmpty(),
+            releaseYear = movieDetail?.releaseYear ?: 0,
+            duration = movieDetail?.duration.orEmpty(),
+            posterImagePath = movieDetail?.imagePath.orEmpty(),
+            theaterName = string("cinema"),
+            watchedDate = string("watchedDate"),
+            watchedTime = string("watchedTime"),
+            review = string("review")
+        )
+    }
+
     private suspend fun fetchMovieTitle(movieSeq: String): String {
         val seq = movieSeq.toLongOrNull() ?: return "제목 없음"
         return runCatching {
@@ -471,6 +502,18 @@ class RemoteAppRepository @Inject constructor(
             Timber.w(it, "RemoteAppRepository.fetchMovieTitle failed movieSeq=%s", movieSeq)
             "영화 #$movieSeq"
         }
+    }
+
+    private suspend fun fetchMovieDetailOrNull(movieSeq: String): MovieDetail? {
+        val seq = movieSeq.toLongOrNull() ?: return null
+        return runCatching {
+            JsonParser.parseToJsonElement(apiService.fetchMovie(seq).string())
+                .jsonObject
+                .dataObject()
+                .toMovieDetail()
+        }.onFailure {
+            Timber.w(it, "RemoteAppRepository.fetchMovieDetailOrNull failed movieSeq=%s", movieSeq)
+        }.getOrNull()
     }
 
     private fun JsonObject.dataObject(): JsonObject {

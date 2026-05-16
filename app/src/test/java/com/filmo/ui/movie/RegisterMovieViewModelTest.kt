@@ -118,7 +118,7 @@ class RegisterMovieViewModelTest {
         viewModel.goToNextStep()
 
         assertEquals(RegisterMovieStep.MovieInfo, viewModel.uiState.value.step)
-        assertEquals("영화관, 관람일, 별점, 관람 후기를 입력해 주세요.", viewModel.uiState.value.errorMessage)
+        assertEquals("관람일, 별점, 관람 후기를 입력해 주세요.", viewModel.uiState.value.errorMessage)
     }
 
     @Test
@@ -126,7 +126,6 @@ class RegisterMovieViewModelTest {
         val viewModel = RegisterMovieViewModel(FakeAppRepository())
 
         viewModel.selectMovie(FakeMovies.first())
-        viewModel.updateTheaterName("아트나인")
         viewModel.updateReleaseDateMillis(
             releaseDateMillis = 1_609_459_200_000L,
             nowMillis = 1_609_545_600_000L
@@ -206,7 +205,6 @@ class RegisterMovieViewModelTest {
         val viewModel = RegisterMovieViewModel(repository)
 
         viewModel.selectMovie(FakeMovies.first().copy(id = "1001"))
-        viewModel.updateTheaterName("인디스페이스")
         viewModel.updateReleaseDateMillis(
             releaseDateMillis = 1_778_889_600_000L,
             nowMillis = 1_778_976_000_000L
@@ -223,7 +221,7 @@ class RegisterMovieViewModelTest {
                 movieId = "1001",
                 watchedDate = "2026-05-16",
                 watchedTime = "00:00",
-                cinema = "인디스페이스",
+                cinema = "",
                 review = "작고 단단한 영화였어요"
             ),
             repository.createdTicketRequests.single()

@@ -89,6 +89,10 @@ interface AppRepository {
 
     suspend fun fetchTicketCollection(): Result<TicketCollection>
 
+    suspend fun fetchPublicTickets(sort: String = "latest"): Result<List<PublicTicket>> {
+        return Result.failure(UnsupportedOperationException("Public ticket API is not implemented."))
+    }
+
     suspend fun createTicket(request: CreateTicketRequest): Result<Unit> {
         return Result.failure(UnsupportedOperationException("Ticket create API is not implemented."))
     }
@@ -205,6 +209,21 @@ data class MovieTicket(
 data class TicketCollection(
     val myTickets: List<MovieTicket>,
     val savedTickets: List<MovieTicket>
+)
+
+data class PublicTicket(
+    val id: String,
+    val movieSeq: String,
+    val movieTitle: String,
+    val genre: String,
+    val director: String,
+    val releaseYear: Int,
+    val duration: String,
+    val posterImagePath: String,
+    val theaterName: String,
+    val watchedDate: String,
+    val watchedTime: String,
+    val review: String
 )
 
 data class CreateTicketRequest(

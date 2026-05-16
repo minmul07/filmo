@@ -90,6 +90,11 @@ interface ApiService {
     @GET("api/tickets")
     suspend fun fetchTickets(): ResponseBody
 
+    @GET("api/tickets/public")
+    suspend fun fetchPublicTickets(
+        @Query("sort") sort: String = "latest"
+    ): ResponseBody
+
     @POST("api/tickets")
     suspend fun createTicket(
         @Body body: RequestBody

@@ -332,7 +332,7 @@ class RegisterMovieViewModel @Inject constructor(
         if (request == null) {
             Timber.d("RegisterMovieViewModel.createTicket blocked reason=missing_required_info")
             _uiState.update {
-                it.copy(errorMessage = "영화, 영화관, 관람일, 관람 후기를 입력해 주세요.")
+                it.copy(errorMessage = "영화, 관람일, 관람 후기를 입력해 주세요.")
             }
             return false
         }
@@ -405,22 +405,20 @@ class RegisterMovieViewModel @Inject constructor(
     private fun moveToShareIfValid() {
         val state = _uiState.value
         val missingRequiredInfo = state.selectedMovie == null ||
-            state.theaterName.isBlank() ||
             state.releaseDateMillis == null ||
             state.rating == null ||
             state.review.isBlank()
 
         if (missingRequiredInfo) {
             Timber.d(
-                "RegisterMovieViewModel.moveToShareIfValid blocked selectedMovie=%s theaterBlank=%s hasDate=%s hasRating=%s reviewBlank=%s",
+                "RegisterMovieViewModel.moveToShareIfValid blocked selectedMovie=%s hasDate=%s hasRating=%s reviewBlank=%s",
                 state.selectedMovie != null,
-                state.theaterName.isBlank(),
                 state.releaseDateMillis != null,
                 state.rating != null,
                 state.review.isBlank()
             )
             _uiState.update {
-                it.copy(errorMessage = "영화관, 관람일, 별점, 관람 후기를 입력해 주세요.")
+                it.copy(errorMessage = "관람일, 별점, 관람 후기를 입력해 주세요.")
             }
             return
         }
@@ -472,7 +470,7 @@ data class RegisterMovieUiState(
 private fun RegisterMovieUiState.toCreateTicketRequestOrNull(): CreateTicketRequest? {
     val movieId = selectedMovie?.id?.takeIf { it.isNotBlank() } ?: return null
     val watchedDate = releaseDateMillis.toApiWatchedDate().takeIf { it.isNotBlank() } ?: return null
-    val cinema = theaterName.trim().takeIf { it.isNotBlank() } ?: return null
+    val cinema = theaterName.trim()
     val trimmedReview = review.trim().takeIf { it.isNotBlank() } ?: return null
 
     return CreateTicketRequest(

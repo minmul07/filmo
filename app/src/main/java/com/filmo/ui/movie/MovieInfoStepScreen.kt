@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -39,18 +40,25 @@ internal fun MovieInfoStep(
     errorMessage: String?,
     posterImageCache: MoviePosterBitmapSessionCache,
     onReleaseDateClick: () -> Unit,
-    onTheaterNameChange: (String) -> Unit,
     onRatingChange: (Int) -> Unit,
     onReviewChange: (String) -> Unit,
     onNext: () -> Unit
 ) {
     StepContent(
         action = {
+            ErrorText(errorMessage = errorMessage)
             Button(
                 onClick = onNext,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             ) {
-                Text("티켓 만들기")
+                Text("완료")
             }
         }
     ) {
@@ -58,24 +66,10 @@ internal fun MovieInfoStep(
             uiState = uiState,
             posterImageCache = posterImageCache
         )
-        FormSectionTitle(text = "영화관")
-        OutlinedTextField(
-            value = uiState.theaterName,
-            onValueChange = onTheaterNameChange,
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = {
-                Text(
-                    text = "관람한 영화관",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            singleLine = true,
-            shape = RoundedCornerShape(12.dp)
-        )
         FormSectionTitle(text = "관람일")
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             DateValueBox(
                 text = uiState.releaseDateMillis.toWatchedYearText(),
@@ -102,7 +96,9 @@ internal fun MovieInfoStep(
         OutlinedTextField(
             value = uiState.review,
             onValueChange = onReviewChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(92.dp),
             placeholder = {
                 Text(
                     text = "placeholder\n공백 포함 100자",
@@ -111,9 +107,8 @@ internal fun MovieInfoStep(
             },
             minLines = 5,
             maxLines = 5,
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(10.dp)
         )
-        ErrorText(errorMessage = errorMessage)
     }
 }
 
@@ -157,8 +152,8 @@ private fun MovieInfoSummary(
                 title = title.ifBlank { "선택한 영화" },
                 imageCache = posterImageCache,
                 modifier = Modifier
-                    .width(186.dp)
-                    .height(262.dp),
+                    .width(142.dp)
+                    .height(200.dp),
                 shape = RoundedCornerShape(0.dp),
                 showBorder = false
             )
@@ -205,11 +200,11 @@ private fun DateValueBox(
 ) {
     Surface(
         modifier = modifier
-            .height(58.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .height(44.dp)
+            .clip(RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
             .semantics { role = Role.Button },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(10.dp),
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
     ) {
@@ -246,12 +241,12 @@ private fun RatingSelector(
             val selected = rating != null && score <= rating
             IconButton(
                 onClick = { onRatingChange(score) },
-                modifier = Modifier.size(34.dp)
+                modifier = Modifier.size(24.dp)
             ) {
                 Icon(
                     imageVector = Icons.Filled.Star,
                     contentDescription = "$score 점",
-                    modifier = Modifier.size(34.dp),
+                    modifier = Modifier.size(24.dp),
                     tint = if (selected) {
                         RatingSelectedColor
                     } else {

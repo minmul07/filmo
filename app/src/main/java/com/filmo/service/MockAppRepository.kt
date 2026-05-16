@@ -305,6 +305,28 @@ class MockAppRepository @Inject constructor() : AppRepository {
         )
     }
 
+    override suspend fun fetchPublicTickets(sort: String): Result<List<PublicTicket>> = withMockDelay(
+        "fetchPublicTickets(sort=$sort)"
+    ) {
+        (myTickets + savedTickets).map { ticket ->
+            val detail = movieDetails.firstOrNull { it.title == ticket.movieTitle }
+            PublicTicket(
+                id = ticket.id,
+                movieSeq = detail?.id ?: ticket.id,
+                movieTitle = ticket.movieTitle,
+                genre = detail?.genre.orEmpty(),
+                director = detail?.director.orEmpty(),
+                releaseYear = detail?.releaseYear ?: 0,
+                duration = detail?.duration.orEmpty(),
+                posterImagePath = detail?.imagePath.orEmpty(),
+                theaterName = ticket.theaterName,
+                watchedDate = ticket.watchedDate,
+                watchedTime = "19:30",
+                review = ticket.review
+            )
+        }
+    }
+
     override suspend fun createTicket(request: CreateTicketRequest): Result<Unit> = withMockDelay(
         "createTicket(movieId=${request.movieId}, watchedDateLength=${request.watchedDate.length}, cinemaLength=${request.cinema.length}, reviewLength=${request.review.length})"
     ) {

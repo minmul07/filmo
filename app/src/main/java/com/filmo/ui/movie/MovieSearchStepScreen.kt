@@ -77,13 +77,8 @@ internal fun MovieSearchStep(
         scrollable = false
     ) {
         Text(
-            text = "영화 검색",
+            text = "기록하기",
             style = MaterialTheme.typography.headlineSmall
-        )
-        Text(
-            text = "관람한 영화를 검색하세요",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         OutlinedTextField(
             value = query,
@@ -95,7 +90,7 @@ internal fun MovieSearchStep(
                     contentDescription = null
                 )
             },
-            label = { Text("영화 제목으로 검색") },
+            label = { Text("관람한 영화를 검색하세요") },
             singleLine = true
         )
         when {

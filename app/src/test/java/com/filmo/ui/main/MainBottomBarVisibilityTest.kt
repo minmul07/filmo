@@ -7,7 +7,7 @@ import org.junit.Test
 
 class MainBottomBarVisibilityTest {
     @Test
-    fun topLevelDestinationsExceptRecordReserveBottomBarSpace() {
+    fun topLevelDestinationsReserveBottomBarSpace() {
         assertTrue(
             shouldReserveBottomBarSpace(
                 currentDestination = ScreenDestination.Feed
@@ -16,10 +16,20 @@ class MainBottomBarVisibilityTest {
     }
 
     @Test
-    fun recordDoesNotReserveOuterBottomBarSpace() {
+    fun recordRouteDoesNotReserveBottomBarSpaceAtNavDisplayLevel() {
         assertFalse(
             shouldReserveBottomBarSpace(
                 currentDestination = ScreenDestination.Record
+            )
+        )
+    }
+
+    @Test
+    fun recordRouteDoesNotReserveBottomBarSpaceWhenRegisterStepCoversBottomBar() {
+        assertFalse(
+            shouldReserveBottomBarSpace(
+                currentDestination = ScreenDestination.Record,
+                recordCoversBottomBar = true
             )
         )
     }
@@ -37,6 +47,29 @@ class MainBottomBarVisibilityTest {
                     theaterId = "theater-1",
                     initiallySaved = false
                 )
+            )
+        )
+    }
+
+    @Test
+    fun recordMovieStateIsKeptWhileRecordRouteStaysActive() {
+        assertFalse(
+            shouldResetRecordMovieState(
+                currentDestination = ScreenDestination.Record
+            )
+        )
+    }
+
+    @Test
+    fun recordMovieStateIsResetAfterLeavingRecordRoute() {
+        assertTrue(
+            shouldResetRecordMovieState(
+                currentDestination = ScreenDestination.Feed
+            )
+        )
+        assertTrue(
+            shouldResetRecordMovieState(
+                currentDestination = ScreenDestination.Collection
             )
         )
     }

@@ -20,6 +20,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -33,6 +34,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
@@ -44,6 +46,7 @@ import com.filmo.ui.collection.CollectionEditScreen
 import com.filmo.ui.collection.CollectionScreen
 import com.filmo.ui.feed.FeedScreen
 import com.filmo.ui.movie.RegisterMovieScreen
+import com.filmo.ui.movie.RegisterMovieViewModel
 import com.filmo.ui.profile.ProfileRoute
 import com.filmo.ui.theater.TheaterDetailScreen
 import com.filmo.ui.theater.TheaterFinderScreen
@@ -78,8 +81,15 @@ fun MainScreen(
     val reserveBottomBarSpace = shouldReserveBottomBarSpace(
         currentDestination = currentDestination
     )
+    val registerMovieViewModel: RegisterMovieViewModel = hiltViewModel()
     val layoutDirection = LocalLayoutDirection.current
     val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
+
+    LaunchedEffect(currentDestination, registerMovieViewModel) {
+        if (shouldResetRecordMovieState(currentDestination)) {
+            registerMovieViewModel.reset()
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         FilmoBottomBar(
@@ -114,6 +124,7 @@ fun MainScreen(
 
                 entry<ScreenDestination.Record> {
                     RegisterMovieScreen(
+                        viewModel = registerMovieViewModel,
                         searchBottomPadding = bottomBarHeight,
                         onBack = { navigateToTopLevelDestination(ScreenDestination.Feed) },
                         onNavigateToCollection = {
@@ -187,13 +198,23 @@ fun MainScreen(
     }
 }
 
-internal fun shouldReserveBottomBarSpace(
+internal fun shouldResetRecordMovieState(
     currentDestination: ScreenDestination
 ): Boolean {
-    return currentDestination != ScreenDestination.Record &&
-        currentDestination !is ScreenDestination.CollectionDetail &&
-        currentDestination !is ScreenDestination.CollectionEdit &&
-        currentDestination !is ScreenDestination.TheaterDetail
+    return currentDestination !is ScreenDestination.Record
+}
+
+internal fun shouldReserveBottomBarSpace(
+    currentDestination: ScreenDestination,
+    recordCoversBottomBar: Boolean = false
+): Boolean {
+    return when {
+        currentDestination is ScreenDestination.Record -> false
+        currentDestination is ScreenDestination.CollectionDetail -> false
+        currentDestination is ScreenDestination.CollectionEdit -> false
+        currentDestination is ScreenDestination.TheaterDetail -> false
+        else -> true
+    }
 }
 
 @Composable
