@@ -40,11 +40,14 @@ internal fun StepContent(
             modifier = if (scrollable) {
                 Modifier
                     .weight(1f)
+                    .padding(top = 16.dp)
                     .verticalScroll(scrollState)
             } else {
-                Modifier.weight(1f)
+                Modifier
+                    .weight(1f)
+                    .padding(top = 16.dp)
             },
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
             content = content
         )
         action()

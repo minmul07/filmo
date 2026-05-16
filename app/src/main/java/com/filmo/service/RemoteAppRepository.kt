@@ -340,17 +340,20 @@ class RemoteAppRepository @Inject constructor(
 
     private suspend fun JsonObject.toMovieTicket(ownedByMe: Boolean): MovieTicket {
         val movieSeq = string("movieSeq")
+        val movieDetail = fetchMovieDetailOrNull(movieSeq)
         return MovieTicket(
             id = string("id"),
             movieTitle = string("movieTitle")
                 .ifBlank { string("korTitle") }
+                .ifBlank { movieDetail?.title.orEmpty() }
                 .ifBlank { fetchMovieTitle(movieSeq) },
             theaterName = string("cinema"),
             watchedDate = string("watchedDate"),
             rating = int("rating").coerceIn(MIN_TICKET_RATING, MAX_TICKET_RATING),
             review = string("review"),
             ownedByMe = ownedByMe,
-            savedByMe = booleanOrNull("savedByMe") == true
+            savedByMe = booleanOrNull("savedByMe") == true,
+            posterImagePath = movieDetail?.imagePath.orEmpty()
         )
     }
 
@@ -369,7 +372,9 @@ class RemoteAppRepository @Inject constructor(
             theaterName = string("cinema"),
             watchedDate = string("watchedDate"),
             watchedTime = string("watchedTime"),
-            review = string("review")
+            review = string("review"),
+            rating = int("rating").coerceIn(MIN_TICKET_RATING, MAX_TICKET_RATING),
+            ownerNickname = string("ownerNickname")
         )
     }
 

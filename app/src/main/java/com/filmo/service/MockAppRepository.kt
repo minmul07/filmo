@@ -96,7 +96,8 @@ class MockAppRepository @Inject constructor() : AppRepository {
             rating = 4,
             review = "유쾌하고 따뜻한 영화였어요",
             ownedByMe = true,
-            savedByMe = false
+            savedByMe = false,
+            posterImagePath = ""
         ),
         MovieTicket(
             id = "my-ticket-2",
@@ -106,7 +107,8 @@ class MockAppRepository @Inject constructor() : AppRepository {
             rating = 5,
             review = "겨울 공기와 편지의 여운이 오래 남았다.",
             ownedByMe = true,
-            savedByMe = false
+            savedByMe = false,
+            posterImagePath = "moonlit-winter.jpg"
         )
     )
     private val savedTickets = mutableListOf(
@@ -118,7 +120,8 @@ class MockAppRepository @Inject constructor() : AppRepository {
             rating = 5,
             review = "영상미가 압도적이었습니다",
             ownedByMe = false,
-            savedByMe = true
+            savedByMe = true,
+            posterImagePath = "decision-to-leave.jpg"
         ),
         MovieTicket(
             id = "saved-ticket-2",
@@ -128,7 +131,8 @@ class MockAppRepository @Inject constructor() : AppRepository {
             rating = 4,
             review = "작은 순간들이 오래 기억에 남았다.",
             ownedByMe = false,
-            savedByMe = true
+            savedByMe = true,
+            posterImagePath = "house-of-hummingbird.jpg"
         )
     )
 
@@ -241,7 +245,13 @@ class MockAppRepository @Inject constructor() : AppRepository {
                 theaterName = ticket.theaterName,
                 watchedDate = ticket.watchedDate,
                 watchedTime = "19:30",
-                review = ticket.review
+                review = ticket.review,
+                rating = ticket.rating,
+                ownerNickname = if (ticket.ownedByMe) {
+                    "모크사용자"
+                } else {
+                    "독립영화user1234"
+                }
             )
         }
     }
@@ -249,8 +259,8 @@ class MockAppRepository @Inject constructor() : AppRepository {
     override suspend fun createTicket(request: CreateTicketRequest): Result<Unit> = withMockDelay(
         "createTicket(movieId=${request.movieId}, watchedDateLength=${request.watchedDate.length}, cinemaLength=${request.cinema.length}, reviewLength=${request.review.length})"
     ) {
-        val movieTitle = movieDetails.firstOrNull { it.id == request.movieId }?.title
-            ?: "영화 #${request.movieId}"
+        val movieDetail = movieDetails.firstOrNull { it.id == request.movieId }
+        val movieTitle = movieDetail?.title ?: "영화 #${request.movieId}"
         myTickets += MovieTicket(
             id = "my-ticket-${myTickets.size + 1}",
             movieTitle = movieTitle,
@@ -259,7 +269,8 @@ class MockAppRepository @Inject constructor() : AppRepository {
             rating = 0,
             review = request.review,
             ownedByMe = true,
-            savedByMe = false
+            savedByMe = false,
+            posterImagePath = movieDetail?.imagePath.orEmpty()
         )
         Unit
     }

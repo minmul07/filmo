@@ -13,12 +13,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -56,6 +57,7 @@ import com.filmo.ui.movie.rememberMoviePosterBitmapSessionCache
 import com.filmo.ui.movie.toMovieImageUrl
 import com.filmo.ui.theme.FilmoTheme
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 @Composable
 fun TicketViewScreen(
@@ -88,33 +90,27 @@ private fun TicketViewContent(
 ) {
     val posterImageCache = rememberMoviePosterBitmapSessionCache()
 
-    Box(
+    Column(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            modifier = Modifier.fillMaxSize(),
+        TicketViewTopBar()
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
             contentPadding = PaddingValues(
-                start = 18.dp,
-                top = 28.dp,
-                end = 18.dp,
+                start = 16.dp,
+                top = 16.dp,
+                end = 16.dp,
                 bottom = 24.dp
             ),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            item(
-                span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }
-            ) {
-                TicketViewHeader()
-            }
-
             if (uiState.errorMessage != null && uiState.tickets.isNotEmpty()) {
-                item(
-                    span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }
-                ) {
+                item {
                     Text(
                         text = uiState.errorMessage,
                         style = MaterialTheme.typography.bodyMedium,
@@ -124,15 +120,11 @@ private fun TicketViewContent(
             }
 
             when {
-                uiState.isLoading -> item(
-                    span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }
-                ) {
+                uiState.isLoading -> item {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 }
 
-                uiState.errorMessage != null && uiState.tickets.isEmpty() -> item(
-                    span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }
-                ) {
+                uiState.errorMessage != null && uiState.tickets.isEmpty() -> item {
                     TicketViewPlaceholder(
                         title = "공개 티켓을 불러오지 못했어요",
                         body = "잠시 후 다시 시도해 주세요.",
@@ -144,9 +136,7 @@ private fun TicketViewContent(
                     )
                 }
 
-                uiState.tickets.isEmpty() -> item(
-                    span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }
-                ) {
+                uiState.tickets.isEmpty() -> item {
                     TicketViewPlaceholder(
                         title = "아직 공개된 티켓이 없어요",
                         body = "다른 사용자의 독립영화 기록이 곧 표시됩니다."
@@ -169,21 +159,22 @@ private fun TicketViewContent(
 }
 
 @Composable
-private fun TicketViewHeader() {
-    Column(
-        modifier = Modifier.padding(bottom = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+private fun TicketViewTopBar(
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 16.dp),
+        contentAlignment = Alignment.CenterStart
     ) {
         Text(
-            text = "공개 티켓",
+            text = "티켓보기",
             modifier = Modifier.semantics { heading() },
-            style = MaterialTheme.typography.headlineLarge,
+            style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.onBackground
-        )
-        Text(
-            text = "다른 사람들이 공유한 독립영화 기록",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -210,11 +201,11 @@ private fun PublicTicketCard(
             ticket.duration.takeIf { it.isNotBlank() }
         ).joinToString(" · ")
     }
-    val watchedText = remember(ticket.watchedDate, ticket.watchedTime) {
-        listOf(ticket.watchedDate, ticket.watchedTime)
-            .filter { it.isNotBlank() }
-            .joinToString(" ")
-            .ifBlank { "관람일 미입력" }
+    val watchedDateText = remember(ticket.watchedDate) {
+        ticket.watchedDate.toTicketViewWatchedDateText()
+    }
+    val ownerNickname = ticket.ownerNickname.ifBlank {
+        "익명 시네필"
     }
     val ticketShape = remember {
         TicketViewTicketShape(
@@ -229,7 +220,7 @@ private fun PublicTicketCard(
             .fillMaxWidth()
             .aspectRatio(TicketViewTicketAspectRatio)
             .semantics(mergeDescendants = true) {
-                contentDescription = "${ticket.movieTitle} 공개 티켓, $watchedText, ${ticket.theaterName}"
+                contentDescription = "${ownerNickname}님의 ${ticket.movieTitle} 공개 티켓, 별점 ${ticket.rating}/5점, 관람일 $watchedDateText"
             },
         shape = ticketShape,
         color = MaterialTheme.colorScheme.surface,
@@ -255,19 +246,32 @@ private fun PublicTicketCard(
                             .align(Alignment.BottomStart)
                             .fillMaxWidth()
                             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
-                            .padding(horizontal = 10.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text(
-                            text = ticket.movieTitle,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = ticket.movieTitle,
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Icon(
+                                imageVector = Icons.Outlined.FavoriteBorder,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
                         Text(
                             text = metaText.ifBlank { "독립영화" },
-                            style = MaterialTheme.typography.labelMedium,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -275,8 +279,9 @@ private fun PublicTicketCard(
                     }
                 }
                 PublicTicketDetailArea(
-                    theaterName = ticket.theaterName.ifBlank { "영화관 미입력" },
-                    watchedText = watchedText,
+                    rating = ticket.rating,
+                    watchedDateText = watchedDateText,
+                    ownerNickname = ownerNickname,
                     review = ticket.review,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -293,40 +298,55 @@ private fun PublicTicketCard(
 
 @Composable
 private fun PublicTicketDetailArea(
-    theaterName: String,
-    watchedText: String,
+    rating: Int,
+    watchedDateText: String,
+    ownerNickname: String,
     review: String,
     modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .padding(start = 10.dp, top = 22.dp, end = 10.dp, bottom = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(7.dp)
+            .padding(start = 16.dp, top = 34.dp, end = 16.dp, bottom = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(28.dp),
+            verticalAlignment = Alignment.Top
         ) {
             TicketViewTicketInfoBlock(
-                icon = Icons.Filled.LocationOn,
-                label = "영화관",
-                value = theaterName,
-                modifier = Modifier.weight(1f)
+                icon = Icons.Filled.Star,
+                label = "별점",
+                value = "${rating.coerceIn(0, 5)}/5점",
+                modifier = Modifier.size(width = 56.dp, height = 42.dp)
             )
             TicketViewTicketInfoBlock(
                 label = "관람일",
-                value = watchedText,
-                modifier = Modifier.weight(1f)
+                value = watchedDateText,
+                modifier = Modifier.fillMaxWidth()
             )
         }
-        Text(
-            text = review.ifBlank { "남긴 관람 후기가 없어요." },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = "관람 후기",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = ownerNickname,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = review.ifBlank { "남긴 관람 후기가 없어요." },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -351,16 +371,16 @@ private fun TicketViewTicketInfoBlock(
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (icon != null) {
-                androidx.compose.material3.Icon(
+                Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.secondary
                 )
             }
             Text(
                 text = value,
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -528,8 +548,27 @@ private val PublicTicket.ticketViewKey: String
         .filter { it.isNotBlank() }
         .joinToString("-")
 
-private const val TicketViewTicketAspectRatio = 0.57f
-private const val TicketViewTicketPerforationFraction = 0.69f
+private fun String.toTicketViewWatchedDateText(): String {
+    if (isBlank()) return "관람일 미입력"
+
+    return runCatching {
+        val date = LocalDate.parse(this)
+        val dayOfWeek = KoreanDayOfWeekLabels[date.dayOfWeek.value - 1]
+        "%04d년 %02d월 %02d일 (%s)".format(
+            date.year,
+            date.monthValue,
+            date.dayOfMonth,
+            dayOfWeek
+        )
+    }.getOrElse {
+        this
+    }
+}
+
+private val KoreanDayOfWeekLabels = listOf("월", "화", "수", "목", "금", "토", "일")
+
+private const val TicketViewTicketAspectRatio = 328f / 624f
+private const val TicketViewTicketPerforationFraction = 402f / 624f
 
 @Preview(showBackground = true)
 @Composable

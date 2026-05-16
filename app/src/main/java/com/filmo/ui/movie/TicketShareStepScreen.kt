@@ -6,12 +6,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
@@ -33,6 +35,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
@@ -47,23 +50,35 @@ internal fun TicketShareStep(
 ) {
     StepContent(
         action = {
-            ErrorText(errorMessage = uiState.errorMessage)
-            Button(
-                onClick = onShareClick,
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(68.dp),
-                enabled = !uiState.isTicketCreateLoading,
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.inverseSurface,
-                    contentColor = MaterialTheme.colorScheme.inverseOnSurface
-                )
+                    .height(96.dp)
             ) {
-                Text(
-                    text = if (uiState.isTicketCreateLoading) "티켓 생성 중..." else "공유하기",
-                    style = MaterialTheme.typography.titleMedium
-                )
+                ErrorText(errorMessage = uiState.errorMessage)
+                Button(
+                    onClick = onShareClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 10.dp)
+                        .height(48.dp),
+                    enabled = !uiState.isTicketCreateLoading,
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    Text(
+                        text = if (uiState.isTicketCreateLoading) {
+                            "티켓 생성 중..."
+                        } else {
+                            "티켓 발행하기"
+                        },
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+                Spacer(modifier = Modifier.height(28.dp))
             }
         }
     ) {
@@ -120,17 +135,16 @@ private fun MovieShareTicket(
             .aspectRatio(TicketAspectRatio)
             .semantics(mergeDescendants = true) {
                 contentDescription = "$title 티켓, 별점 $ratingText, 관람일 $watchedDate"
-            },
+        },
         shape = ticketShape,
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 3.dp
+        color = MaterialTheme.colorScheme.primaryContainer
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Column(modifier = Modifier.fillMaxSize()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(TicketPerforationFraction)
+                        .weight(TicketImageFraction)
                 ) {
                     MoviePosterImage(
                         imageUrl = posterUrl,
@@ -145,12 +159,14 @@ private fun MovieShareTicket(
                             .align(Alignment.BottomStart)
                             .fillMaxWidth()
                             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
-                            .padding(horizontal = 22.dp, vertical = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
                             text = title,
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Normal
+                            ),
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -170,7 +186,7 @@ private fun MovieShareTicket(
                     review = uiState.review,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f - TicketPerforationFraction)
+                        .weight(1f - TicketImageFraction)
                 )
             }
             TicketPerforationLine(
@@ -190,13 +206,12 @@ private fun TicketDetailArea(
 ) {
     Column(
         modifier = modifier
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .padding(start = 22.dp, top = 48.dp, end = 22.dp, bottom = 22.dp),
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .padding(start = 16.dp, top = 40.dp, end = 16.dp, bottom = 22.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(24.dp)
+            horizontalArrangement = Arrangement.spacedBy(28.dp)
         ) {
             TicketInfoBlock(
                 label = "별점",
@@ -205,29 +220,29 @@ private fun TicketDetailArea(
                     Icon(
                         imageVector = Icons.Filled.Star,
                         contentDescription = null,
-                        modifier = Modifier.size(24.dp),
+                        modifier = Modifier.size(18.dp),
                         tint = RatingSelectedColor
                     )
                 },
-                modifier = Modifier.weight(0.8f)
+                modifier = Modifier.width(56.dp)
             )
             TicketInfoBlock(
                 label = "관람일",
                 value = watchedDate,
-                modifier = Modifier.weight(1.4f)
+                modifier = Modifier.width(131.dp)
             )
         }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(
                 text = "관람 후기",
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = review.ifBlank { "남긴 관람 후기가 없어요." },
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 3,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
         }
@@ -247,7 +262,7 @@ private fun TicketInfoBlock(
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.titleSmall,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface
         )
         Row(
@@ -271,7 +286,7 @@ private fun TicketPerforationLine(
     fraction: Float,
     modifier: Modifier = Modifier
 ) {
-    val lineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f)
+    val lineColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
     Canvas(modifier = modifier) {
         val y = size.height * fraction
         drawLine(
@@ -380,5 +395,6 @@ private class TicketShape(
     }
 }
 
-private const val TicketAspectRatio = 0.57f
-private const val TicketPerforationFraction = 0.69f
+private const val TicketAspectRatio = 328f / 572f
+private const val TicketImageFraction = 382f / 572f
+private const val TicketPerforationFraction = 402f / 572f

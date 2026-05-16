@@ -40,4 +40,9 @@ class RegisterMovieStepLayoutTest {
     fun movieSearchStepUsesRecordHeaderTitle() {
         assertEquals("기록하기", registerMovieHeaderTitle(RegisterMovieStep.MovieSearch))
     }
+
+    @Test
+    fun shareStepUsesTicketIssueHeaderTitle() {
+        assertEquals("티켓 발행", registerMovieHeaderTitle(RegisterMovieStep.Share))
+    }
 }

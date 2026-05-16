@@ -343,8 +343,10 @@ class RemoteAppRepositoryTest {
                       "movieSeq": 1001,
                       "watchedDate": "2026-05-16",
                       "watchedTime": "19:30",
+                      "rating": 3,
                       "cinema": "인디스페이스",
                       "review": "작고 단단한 영화였어요",
+                      "ownerNickname": "독립영화user1234",
                       "showYn": true,
                       "createdAt": "2026-05-16T13:51:52.335Z",
                       "updatedAt": "2026-05-16T13:51:52.335Z"
@@ -388,6 +390,8 @@ class RemoteAppRepositoryTest {
                 theaterName = "인디스페이스",
                 watchedDate = "2026-05-16",
                 watchedTime = "19:30",
+                rating = 3,
+                ownerNickname = "독립영화user1234",
                 review = "작고 단단한 영화였어요"
             ),
             result.getOrThrow().single()

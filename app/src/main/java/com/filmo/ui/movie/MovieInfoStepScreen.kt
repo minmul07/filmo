@@ -2,10 +2,12 @@ package com.filmo.ui.movie
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,10 +20,8 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
@@ -47,20 +48,30 @@ internal fun MovieInfoStep(
 ) {
     StepContent(
         action = {
-            ErrorText(errorMessage = errorMessage)
-            Button(
-                onClick = onNext,
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 10.dp)
-                    .height(48.dp),
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                    .height(96.dp)
             ) {
-                Text("완료")
+                ErrorText(errorMessage = errorMessage)
+                Button(
+                    onClick = onNext,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 10.dp)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    Text(
+                        text = "완료",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+                Spacer(modifier = Modifier.height(28.dp))
             }
         }
     ) {
@@ -95,21 +106,12 @@ internal fun MovieInfoStep(
             onRatingChange = onRatingChange
         )
         FormSectionTitle(text = "관람 후기")
-        OutlinedTextField(
+        ReviewTextField(
             value = uiState.review,
             onValueChange = onReviewChange,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(92.dp),
-            placeholder = {
-                Text(
-                    text = "placeholder\n공백 포함 100자",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            minLines = 5,
-            maxLines = 5,
-            shape = RoundedCornerShape(10.dp)
+                .height(92.dp)
         )
     }
 }
@@ -142,7 +144,7 @@ private fun MovieInfoSummary(
 
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         FormSectionTitle(text = "영화")
         Box(
@@ -165,12 +167,12 @@ private fun MovieInfoSummary(
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = metaText,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             if (uiState.isMovieDetailLoading) {
@@ -188,7 +190,7 @@ private fun FormSectionTitle(
     Text(
         text = text,
         modifier = modifier,
-        style = MaterialTheme.typography.titleMedium,
+        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Normal),
         color = MaterialTheme.colorScheme.onSurface
     )
 }
@@ -216,12 +218,8 @@ private fun DateValueBox(
         ) {
             Text(
                 text = text.ifBlank { placeholder },
-                style = MaterialTheme.typography.titleMedium,
-                color = if (text.isBlank()) {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center
             )
         }
@@ -241,9 +239,13 @@ private fun RatingSelector(
     ) {
         (1..5).forEach { score ->
             val selected = rating != null && score <= rating
-            IconButton(
-                onClick = { onRatingChange(score) },
-                modifier = Modifier.size(24.dp)
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .clickable(onClick = { onRatingChange(score) })
+                    .semantics { role = Role.Button },
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Filled.Star,
@@ -257,5 +259,44 @@ private fun RatingSelector(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ReviewTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+    ) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            textStyle = MaterialTheme.typography.bodySmall.copy(
+                color = MaterialTheme.colorScheme.onSurface
+            ),
+            modifier = Modifier.fillMaxSize(),
+            decorationBox = { innerTextField ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                ) {
+                    if (value.isBlank()) {
+                        Text(
+                            text = "내용 입력 공백 포함 최대 100자",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    innerTextField()
+                }
+            }
+        )
     }
 }

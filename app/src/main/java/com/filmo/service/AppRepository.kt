@@ -139,7 +139,8 @@ data class MovieTicket(
     val rating: Int,
     val review: String,
     val ownedByMe: Boolean,
-    val savedByMe: Boolean
+    val savedByMe: Boolean,
+    val posterImagePath: String = ""
 )
 
 data class TicketCollection(
@@ -159,7 +160,9 @@ data class PublicTicket(
     val theaterName: String,
     val watchedDate: String,
     val watchedTime: String,
-    val review: String
+    val review: String,
+    val rating: Int = 0,
+    val ownerNickname: String = ""
 )
 
 data class CreateTicketRequest(

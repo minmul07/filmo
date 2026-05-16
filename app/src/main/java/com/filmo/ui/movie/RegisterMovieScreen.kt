@@ -232,7 +232,7 @@ internal fun registerMovieHeaderTitle(step: RegisterMovieStep): String {
     return when (step) {
         RegisterMovieStep.MovieSearch -> "기록하기"
         RegisterMovieStep.MovieInfo -> "관람 정보 입력"
-        RegisterMovieStep.Share -> "관람 정보 입력"
+        RegisterMovieStep.Share -> "티켓 발행"
     }
 }
 

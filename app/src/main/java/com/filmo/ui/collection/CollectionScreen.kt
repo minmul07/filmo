@@ -1,10 +1,7 @@
 package com.filmo.ui.collection
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,51 +10,33 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.filmo.service.MovieTicket
+import com.filmo.ui.movie.rememberMoviePosterBitmapSessionCache
 import com.filmo.ui.theme.FilmoTheme
 import kotlinx.coroutines.launch
 
@@ -78,15 +57,12 @@ fun CollectionScreen(
     CollectionContent(
         uiState = uiState,
         modifier = modifier,
-        onTabClick = viewModel::selectTab,
         onRetryClick = {
             coroutineScope.launch {
                 viewModel.loadTickets()
             }
         },
         onTicketClick = onTicketClick,
-        onEditTicket = onEditTicket,
-        onDeleteTicket = viewModel::requestDeleteTicket,
         onDismissDelete = viewModel::dismissDeleteDialog,
         onConfirmDelete = {
             coroutineScope.launch {
@@ -119,7 +95,6 @@ fun CollectionDetailScreen(
         pendingDeleteTicket = uiState.pendingDeleteTicket,
         modifier = modifier,
         onBack = onBack,
-        onEditTicket = { onEditTicket(ticketId) },
         onDeleteTicket = { viewModel.requestDeleteTicket(ticketId) },
         onDismissDelete = viewModel::dismissDeleteDialog,
         onConfirmDelete = {
@@ -182,42 +157,35 @@ fun CollectionEditScreen(
 private fun CollectionContent(
     uiState: CollectionUiState,
     modifier: Modifier = Modifier,
-    onTabClick: (CollectionTicketTab) -> Unit,
     onRetryClick: () -> Unit,
     onTicketClick: (String) -> Unit,
-    onEditTicket: (String) -> Unit,
-    onDeleteTicket: (String) -> Unit,
     onDismissDelete: () -> Unit,
     onConfirmDelete: () -> Unit
 ) {
-    Box(
+    val posterImageCache = rememberMoviePosterBitmapSessionCache()
+    val tickets = uiState.myTickets
+
+    Column(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+        CollectionTopBar()
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            modifier = Modifier.weight(1f),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                start = 24.dp,
-                top = 32.dp,
-                end = 24.dp,
+                start = 16.dp,
+                top = 16.dp,
+                end = 16.dp,
                 bottom = 24.dp
             ),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item {
-                CollectionHeader()
-            }
-
-            item {
-                CollectionTabs(
-                    selectedTab = uiState.selectedTab,
-                    onTabClick = onTabClick
-                )
-            }
-
-            if (uiState.errorMessage != null && uiState.visibleTickets.isNotEmpty()) {
-                item {
+            if (uiState.errorMessage != null && tickets.isNotEmpty()) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(
                         text = uiState.errorMessage,
                         style = MaterialTheme.typography.bodyMedium,
@@ -227,11 +195,13 @@ private fun CollectionContent(
             }
 
             when {
-                uiState.isLoading -> item {
+                uiState.isLoading -> item(span = { GridItemSpan(maxLineSpan) }) {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 }
 
-                uiState.errorMessage != null && uiState.visibleTickets.isEmpty() -> item {
+                uiState.errorMessage != null && tickets.isEmpty() -> item(
+                    span = { GridItemSpan(maxLineSpan) }
+                ) {
                     CollectionPlaceholder(
                         title = "티켓을 불러오지 못했어요",
                         body = "잠시 후 다시 시도해 주세요.",
@@ -243,27 +213,22 @@ private fun CollectionContent(
                     )
                 }
 
-                uiState.visibleTickets.isEmpty() -> item {
+                tickets.isEmpty() -> item(span = { GridItemSpan(maxLineSpan) }) {
                     CollectionPlaceholder(
-                        title = if (uiState.selectedTab == CollectionTicketTab.MyTickets) {
-                            "아직 기록한 티켓이 없어요"
-                        } else {
-                            "아직 저장한 티켓이 없어요"
-                        },
+                        title = "아직 기록한 티켓이 없어요",
                         body = "좋아하는 독립영화를 티켓으로 모아보세요."
                     )
                 }
 
                 else -> items(
-                    items = uiState.visibleTickets,
-                    key = { it.id }
+                    items = tickets,
+                    key = { it.id },
+                    contentType = { "collection-ticket" }
                 ) { ticket ->
-                    TicketCard(
+                    CollectionTicketCard(
                         ticket = ticket,
-                        showOwnerActions = uiState.selectedTab == CollectionTicketTab.MyTickets,
-                        onClick = { onTicketClick(ticket.id) },
-                        onEditClick = { onEditTicket(ticket.id) },
-                        onDeleteClick = { onDeleteTicket(ticket.id) }
+                        posterImageCache = posterImageCache,
+                        onClick = { onTicketClick(ticket.id) }
                     )
                 }
             }
@@ -278,283 +243,6 @@ private fun CollectionContent(
 }
 
 @Composable
-private fun CollectionHeader() {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = "내 컬렉션",
-            modifier = Modifier.semantics { heading() },
-            style = MaterialTheme.typography.headlineLarge,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Text(
-            text = "내가 기록하고 저장한 영화 티켓",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@Composable
-private fun CollectionTabs(
-    selectedTab: CollectionTicketTab,
-    onTabClick: (CollectionTicketTab) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        CollectionTicketTab.entries.forEach { tab ->
-            val selected = selectedTab == tab
-            Button(
-                onClick = { onTabClick(tab) },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (selected) {
-                        MaterialTheme.colorScheme.onSurface
-                    } else {
-                        MaterialTheme.colorScheme.surfaceVariant
-                    },
-                    contentColor = if (selected) {
-                        MaterialTheme.colorScheme.surface
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    }
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
-            ) {
-                Text(tab.label)
-            }
-        }
-    }
-}
-
-@Composable
-private fun TicketCard(
-    ticket: MovieTicket,
-    showOwnerActions: Boolean,
-    onClick: () -> Unit,
-    onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
-            .semantics { role = Role.Button },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .padding(horizontal = 24.dp, vertical = 28.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "MOVIE TICKET",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = ticket.movieTitle,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = ticket.theaterName,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = ticket.watchedDate,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Column(
-                modifier = Modifier.padding(horizontal = 22.dp, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp)
-            ) {
-                RatingStars(
-                    rating = ticket.rating,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
-                Text(
-                    text = ticket.review,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                if (showOwnerActions) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = onEditClick,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Filled.Edit, contentDescription = null)
-                            Spacer(modifier = Modifier.size(8.dp))
-                            Text("수정")
-                        }
-                        Button(
-                            onClick = onDeleteClick,
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                contentColor = MaterialTheme.colorScheme.surface
-                            )
-                        ) {
-                            Icon(Icons.Filled.Delete, contentDescription = null)
-                            Spacer(modifier = Modifier.size(8.dp))
-                            Text("삭제")
-                        }
-                    }
-                } else {
-                    Button(
-                        onClick = onDeleteClick,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            contentColor = MaterialTheme.colorScheme.surface
-                        )
-                    ) {
-                        Icon(Icons.Filled.Bookmark, contentDescription = null)
-                        Spacer(modifier = Modifier.size(8.dp))
-                        Text("저장 취소")
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun RatingStars(
-    rating: Int,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        repeat(5) { index ->
-            Icon(
-                imageVector = Icons.Filled.Star,
-                contentDescription = null,
-                tint = if (index < rating) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.outline
-                }
-            )
-        }
-    }
-}
-
-@Composable
-private fun CollectionPlaceholder(
-    title: String,
-    body: String,
-    action: @Composable (() -> Unit)? = null
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(220.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
-        Column(
-            modifier = Modifier.padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center
-            )
-            Text(
-                text = body,
-                modifier = Modifier.padding(top = 8.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-            if (action != null) {
-                Spacer(modifier = Modifier.height(18.dp))
-                action()
-            }
-        }
-    }
-}
-
-@Composable
-private fun DeleteTicketDialog(
-    ticket: MovieTicket?,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit
-) {
-    if (ticket == null) return
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = {
-            Surface(
-                modifier = Modifier.size(58.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surfaceVariant
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Filled.Delete,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        },
-        title = {
-            Text(
-                text = if (ticket.ownedByMe) "티켓 삭제" else "저장 삭제",
-                textAlign = TextAlign.Center
-            )
-        },
-        text = {
-            Text(
-                text = if (ticket.ownedByMe) {
-                    "이 티켓을 삭제하시겠습니까?"
-                } else {
-                    "저장한 티켓에서 삭제하시겠습니까?"
-                },
-                textAlign = TextAlign.Center
-            )
-        },
-        confirmButton = {
-            Button(onClick = onConfirm) {
-                Text("삭제")
-            }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onDismiss) {
-                Text("취소")
-            }
-        }
-    )
-}
-
-@Composable
 private fun CollectionDetailContent(
     ticket: MovieTicket?,
     isLoading: Boolean,
@@ -562,38 +250,64 @@ private fun CollectionDetailContent(
     pendingDeleteTicket: MovieTicket?,
     modifier: Modifier = Modifier,
     onBack: () -> Unit,
-    onEditTicket: () -> Unit,
     onDeleteTicket: () -> Unit,
     onDismissDelete: () -> Unit,
     onConfirmDelete: () -> Unit
 ) {
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        contentWindowInsets = WindowInsets(0.dp)
-    ) { innerPadding ->
-        Column(
+    val posterImageCache = rememberMoviePosterBitmapSessionCache()
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        CollectionDetailTopBar(
+            title = "티켓 상세",
+            showDeleteAction = ticket != null,
+            onBack = onBack,
+            onDeleteClick = onDeleteTicket
+        )
+
+        LazyColumn(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 24.dp, vertical = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+                .fillMaxWidth()
+                .weight(1f),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                start = 16.dp,
+                top = 16.dp,
+                end = 16.dp,
+                bottom = 32.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            BackTextHeader(title = "티켓 상세", onBack = onBack)
+            if (errorMessage != null && ticket != null) {
+                item {
+                    Text(
+                        text = errorMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
 
             when {
-                isLoading -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                ticket != null -> TicketCard(
-                    ticket = ticket,
-                    showOwnerActions = ticket.ownedByMe,
-                    onClick = {},
-                    onEditClick = onEditTicket,
-                    onDeleteClick = onDeleteTicket
-                )
+                isLoading -> item {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
 
-                else -> CollectionPlaceholder(
-                    title = "티켓을 찾지 못했어요",
-                    body = errorMessage ?: "삭제되었거나 더 이상 접근할 수 없는 티켓입니다."
-                )
+                ticket != null -> item {
+                    CollectionDetailTicketCard(
+                        ticket = ticket,
+                        posterImageCache = posterImageCache
+                    )
+                }
+
+                else -> item {
+                    CollectionPlaceholder(
+                        title = "티켓을 찾지 못했어요",
+                        body = errorMessage ?: "삭제되었거나 더 이상 접근할 수 없는 티켓입니다."
+                    )
+                }
             }
         }
     }
@@ -748,57 +462,6 @@ private fun CollectionEditContent(
     }
 }
 
-@Composable
-private fun BackTextHeader(
-    title: String,
-    onBack: () -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        TextButton(
-            onClick = onBack,
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = null
-            )
-            Spacer(modifier = Modifier.size(6.dp))
-            Text("뒤로가기")
-        }
-        Text(
-            text = title,
-            modifier = Modifier.semantics { heading() },
-            style = MaterialTheme.typography.headlineLarge,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-    }
-}
-
-@Composable
-private fun RatingEditor(
-    rating: Int,
-    onRatingChange: (Int) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        (1..5).forEach { score ->
-            IconButton(onClick = { onRatingChange(score) }) {
-                Icon(
-                    imageVector = Icons.Filled.Star,
-                    contentDescription = "$score 점",
-                    tint = if (score <= rating) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.outline
-                    }
-                )
-            }
-        }
-    }
-}
-
 @Preview(showBackground = true)
 @Composable
 private fun CollectionContentPreview() {
@@ -818,11 +481,8 @@ private fun CollectionContentPreview() {
                     )
                 )
             ),
-            onTabClick = {},
             onRetryClick = {},
             onTicketClick = {},
-            onEditTicket = {},
-            onDeleteTicket = {},
             onDismissDelete = {},
             onConfirmDelete = {}
         )
