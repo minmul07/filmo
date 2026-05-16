@@ -1,5 +1,7 @@
 # Filmo
 
+## 10th NE(O)RDINARY HACKATHON R조
+
 독립영화를 보고 남긴 감상 기록을 영화 티켓 형태로 수집하고, 다른 사람의 취향까지 둘러볼 수 있는 Android 앱입니다.
 
 해커톤 MVP 기준으로는 로그인, 영화 검색, 관람 정보 입력, 티켓 발행, 내 컬렉션, 공개 티켓 피드가 중심 기능입니다.
@@ -28,7 +30,6 @@
 | 티켓 수정 | 수정 화면과 저장 로직이 존재함. 현재 컬렉션에서 수정 화면으로 들어가는 UX는 정리 필요 |
 | 공개 티켓 피드 | 다른 사용자가 공개한 티켓 목록 조회 |
 | 좋아요 | 공개 티켓과 티켓 상세에서 좋아요 토글, 본인 티켓 좋아요 제한 메시지 처리 |
-| 영화관 추천 | 해커톤 기획상 확장 기능. 현재 코드에는 독립영화관 추천 화면은 아직 없음 |
 
 ## 화면 흐름
 
@@ -222,45 +223,3 @@ buildConfigField("Boolean", "USE_MOCK_REPOSITORY", "false")
 | 좋아요 추가/삭제 | `POST /api/likes/{ticketId}`, `DELETE /api/likes/{ticketId}` |
 | 티켓 수정/삭제 | `PATCH /api/tickets/{ticketId}`, `DELETE /api/tickets/{ticketId}` |
 | 저장한 컬렉션 | `GET /api/collections`, `GET /api/collections/{ticketId}`, `DELETE /api/collections/{ticketId}` |
-
-## 실행 및 빌드
-
-Android Studio에서 열어 실행하는 것을 기본으로 합니다.
-
-필요할 때 debug APK만 확인합니다.
-
-```powershell
-$env:GRADLE_USER_HOME="C:\Users\ddddd\.gradle"; .\gradlew.bat assembleDebug --offline
-```
-
-offline 캐시가 부족해서 실패하면 코드 문제로 단정하지 않고 Gradle 캐시 부족으로 봅니다.
-
-## 테스트
-
-현재 `app/src/test` 아래에 ViewModel, navigation helper, theme token, 날짜 선택, repository 테스트가 포함되어 있습니다.
-
-예시:
-
-- `TicketViewModelTest`
-- `CollectionViewModelTest`
-- `RegisterMovieViewModelTest`
-- `MainBottomBarVisibilityTest`
-- `RemoteAppRepositoryTest`
-
-## 현재 MVP 범위와 남은 확장
-
-현재 앱은 "독립영화 감상 기록을 티켓으로 만들고 공유한다"는 핵심 플로우에 집중되어 있습니다.
-
-남은 확장 후보:
-
-- 독립영화관 장소 추천 화면
-- 영화관 후기 및 별점 모아보기
-- 저장한 티켓 탭 UI 노출
-- 티켓 삭제/수정 진입 UX 정리
-- 티켓 생성 시 영화관 입력값 연동
-- 티켓 이미지 저장 또는 공유 기능
-- 회원가입/랜덤 닉네임 플로우 재활성화
-
-## 한 줄 소개
-
-Filmo는 독립영화 감상 경험을 포스터가 담긴 티켓으로 기록하고, 같은 취향의 사람들이 공개 티켓을 통해 서로의 영화 취향을 발견하도록 돕는 앱입니다.
