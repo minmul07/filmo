@@ -18,6 +18,7 @@ class LocalDisk @Inject constructor(
     companion object {
         val TEST_VAL = stringPreferencesKey("test_val")
         val INITIAL_SETUP_FINISHED = booleanPreferencesKey("initial_setup_finished")
+        val NICKNAME = stringPreferencesKey("nickname")
     }
 
     suspend fun setTestVal(string: String) {
@@ -26,8 +27,19 @@ class LocalDisk @Inject constructor(
         }
     }
 
+    suspend fun setNickname(nickname: String) {
+        context.dataStore.edit { preferences ->
+            preferences[NICKNAME] = nickname
+        }
+    }
+
     val isInitialSetupFinished: Flow<Boolean> = context.dataStore.data
         .map { preferences ->
             preferences[INITIAL_SETUP_FINISHED] ?: false
+        }
+
+    val nickname: Flow<String?> = context.dataStore.data
+        .map { preferences ->
+            preferences[NICKNAME]
         }
 }

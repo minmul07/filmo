@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.filmo.service.AppRepository
 import com.filmo.service.LocalDisk
+import com.filmo.ui.setup.InitialSetupUiState
 import javax.inject.Inject
 
 @HiltViewModel
@@ -21,6 +22,9 @@ class MainViewModel @Inject constructor(
 ) : ViewModel() {
     private val _mainUiState = MutableStateFlow(MainUiState())
     val mainUiState: StateFlow<MainUiState> = _mainUiState.asStateFlow()
+
+    private val _initialSetupUiState = MutableStateFlow(InitialSetupUiState())
+    val initialSetupUiState: StateFlow<InitialSetupUiState> = _initialSetupUiState.asStateFlow()
 
     val isInitialSetupFinished: StateFlow<Boolean?> = localDisk.isInitialSetupFinished
         .stateIn(
@@ -40,6 +44,30 @@ class MainViewModel @Inject constructor(
 
             }
 
+        }
+    }
+
+    fun updateInitialSetupNickname(nickname: String) {
+        _initialSetupUiState.value = _initialSetupUiState.value.toNicknameChanged(nickname)
+    }
+
+    fun saveInitialSetupNickname() {
+        val currentState = _initialSetupUiState.value
+        if (!currentState.canSave) return
+
+        _initialSetupUiState.value = currentState.toSaving()
+        viewModelScope.launch {
+            val nickname = _initialSetupUiState.value.nickname
+            runCatching {
+                localDisk.setNickname(nickname)
+            }.fold(
+                onSuccess = {
+                    _initialSetupUiState.value = _initialSetupUiState.value.toSaved()
+                },
+                onFailure = {
+                    _initialSetupUiState.value = _initialSetupUiState.value.toSaveFailure()
+                }
+            )
         }
     }
 

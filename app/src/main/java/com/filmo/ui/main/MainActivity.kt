@@ -9,12 +9,25 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import dagger.hilt.android.AndroidEntryPoint
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import androidx.navigation3.ui.NavDisplay
+import com.filmo.ui.AppDestination
 import com.filmo.ui.ScreenDestination
+import com.filmo.ui.replaceRoot
+import com.filmo.ui.replaceWithMain
+import com.filmo.ui.setup.InitialSetupScreen
+import com.filmo.ui.setup.InitialSetupUiState
+import com.filmo.ui.setup.SplashScreen
 import com.filmo.ui.theme.FilmoTheme
+import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -25,19 +38,19 @@ class MainActivity : ComponentActivity() {
         updateRequestedOrientation()
         enableEdgeToEdge()
 
-
         setContent {
             FilmoTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background
                 ) {
                     val isInitialSetupFinished by mainViewModel.isInitialSetupFinished.collectAsState()
-
-                    if (isInitialSetupFinished != null) {
-                        MainScreen(
-                            startDestination = ScreenDestination.Feed
-                        )
-                    }
+                    val initialSetupUiState by mainViewModel.initialSetupUiState.collectAsState()
+                    FilmoAppNavHost(
+                        isInitialSetupFinished = isInitialSetupFinished,
+                        initialSetupUiState = initialSetupUiState,
+                        onNicknameChange = mainViewModel::updateInitialSetupNickname,
+                        onSaveClick = mainViewModel::saveInitialSetupNickname
+                    )
                 }
             }
         }
@@ -50,4 +63,53 @@ class MainActivity : ComponentActivity() {
             ActivityInfo.SCREEN_ORIENTATION_FULL_USER
         }
     }
+}
+
+@Composable
+private fun FilmoAppNavHost(
+    isInitialSetupFinished: Boolean?,
+    initialSetupUiState: InitialSetupUiState,
+    onNicknameChange: (String) -> Unit,
+    onSaveClick: () -> Unit
+) {
+    val rootBackStack = rememberNavBackStack(AppDestination.Splash)
+
+    LaunchedEffect(isInitialSetupFinished) {
+        rootBackStack.replaceRoot(
+            when (isInitialSetupFinished) {
+                null -> AppDestination.Splash
+                true -> AppDestination.Main
+                false -> AppDestination.InitialSetup
+            }
+        )
+    }
+
+    NavDisplay(
+        backStack = rootBackStack,
+        modifier = Modifier.fillMaxSize(),
+        entryDecorators = listOf(
+            rememberSaveableStateHolderNavEntryDecorator(),
+            rememberViewModelStoreNavEntryDecorator()
+        ),
+        entryProvider = entryProvider {
+            entry<AppDestination.Splash> {
+                SplashScreen()
+            }
+
+            entry<AppDestination.InitialSetup> {
+                InitialSetupScreen(
+                    uiState = initialSetupUiState,
+                    onNicknameChange = onNicknameChange,
+                    onSaveClick = onSaveClick,
+                    onFinished = rootBackStack::replaceWithMain
+                )
+            }
+
+            entry<AppDestination.Main> {
+                MainScreen(
+                    startDestination = ScreenDestination.Feed
+                )
+            }
+        }
+    )
 }
