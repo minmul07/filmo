@@ -175,7 +175,7 @@ private val TopLevelDestinations = listOf(
     ),
     TopLevelDestination(
         destination = ScreenDestination.Collection,
-        label = "내 컬렉션",
+        label = "컬렉션",
         icon = Icons.Filled.Person
     )
 )

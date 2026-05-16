@@ -38,4 +38,46 @@ class InitialSetupUiStateTest {
         assertFalse(result.isSaving)
         assertTrue(result.isCompleted)
     }
+
+    @Test
+    fun initialStateShowsEntryChoice() {
+        val state = InitialSetupUiState()
+
+        assertEquals(InitialSetupStep.EntryChoice, state.step)
+        assertFalse(state.shouldShowRegenerateButton)
+    }
+
+    @Test
+    fun automaticNicknameFlowShowsRegenerateButton() {
+        val state = InitialSetupUiState().toAutomaticNickname()
+
+        assertEquals(InitialSetupStep.AnonymousProfile, state.step)
+        assertTrue(state.shouldShowRegenerateButton)
+    }
+
+    @Test
+    fun manualNicknameFlowHidesRegenerateButton() {
+        val state = InitialSetupUiState().toManualNickname()
+
+        assertEquals(InitialSetupStep.AnonymousProfile, state.step)
+        assertEquals("", state.nickname)
+        assertFalse(state.shouldShowRegenerateButton)
+    }
+
+    @Test
+    fun backToEntryChoiceReturnsToInitialPage() {
+        val state = InitialSetupUiState()
+            .toAutomaticNickname()
+            .toBackToEntryChoice()
+
+        assertEquals(InitialSetupStep.EntryChoice, state.step)
+        assertFalse(state.shouldShowRegenerateButton)
+    }
+
+    @Test
+    fun completionMessageIncludesSavedNickname() {
+        val state = InitialSetupUiState(nickname = "시네필여행자965")
+
+        assertEquals("환영합니다, 시네필여행자965님", state.completionMessage)
+    }
 }

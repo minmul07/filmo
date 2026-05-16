@@ -48,6 +48,10 @@ class MainActivity : ComponentActivity() {
                     FilmoAppNavHost(
                         isInitialSetupFinished = isInitialSetupFinished,
                         initialSetupUiState = initialSetupUiState,
+                        onAutoNicknameClick = mainViewModel::startAutomaticNicknameSetup,
+                        onManualNicknameClick = mainViewModel::startManualNicknameSetup,
+                        onRegenerateNicknameClick = mainViewModel::startAutomaticNicknameSetup,
+                        onBackToEntryChoice = mainViewModel::backToInitialSetupEntryChoice,
                         onNicknameChange = mainViewModel::updateInitialSetupNickname,
                         onSaveClick = mainViewModel::saveInitialSetupNickname
                     )
@@ -69,6 +73,10 @@ class MainActivity : ComponentActivity() {
 private fun FilmoAppNavHost(
     isInitialSetupFinished: Boolean?,
     initialSetupUiState: InitialSetupUiState,
+    onAutoNicknameClick: () -> Unit,
+    onManualNicknameClick: () -> Unit,
+    onRegenerateNicknameClick: () -> Unit,
+    onBackToEntryChoice: () -> Unit,
     onNicknameChange: (String) -> Unit,
     onSaveClick: () -> Unit
 ) {
@@ -99,6 +107,10 @@ private fun FilmoAppNavHost(
             entry<AppDestination.InitialSetup> {
                 InitialSetupScreen(
                     uiState = initialSetupUiState,
+                    onAutoNicknameClick = onAutoNicknameClick,
+                    onManualNicknameClick = onManualNicknameClick,
+                    onRegenerateNicknameClick = onRegenerateNicknameClick,
+                    onBackToEntryChoice = onBackToEntryChoice,
                     onNicknameChange = onNicknameChange,
                     onSaveClick = onSaveClick,
                     onFinished = rootBackStack::replaceWithMain

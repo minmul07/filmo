@@ -51,6 +51,18 @@ class MainViewModel @Inject constructor(
         _initialSetupUiState.value = _initialSetupUiState.value.toNicknameChanged(nickname)
     }
 
+    fun startAutomaticNicknameSetup() {
+        _initialSetupUiState.value = _initialSetupUiState.value.toAutomaticNickname()
+    }
+
+    fun startManualNicknameSetup() {
+        _initialSetupUiState.value = _initialSetupUiState.value.toManualNickname()
+    }
+
+    fun backToInitialSetupEntryChoice() {
+        _initialSetupUiState.value = _initialSetupUiState.value.toBackToEntryChoice()
+    }
+
     fun saveInitialSetupNickname() {
         val currentState = _initialSetupUiState.value
         if (!currentState.canSave) return

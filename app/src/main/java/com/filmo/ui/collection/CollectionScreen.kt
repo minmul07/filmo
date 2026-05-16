@@ -21,7 +21,7 @@ fun CollectionScreen(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "내 컬렉션 화면 테스트",
+            text = "컬렉션 화면 테스트",
             style = MaterialTheme.typography.headlineMedium
         )
     }
