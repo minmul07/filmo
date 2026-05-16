@@ -95,8 +95,7 @@ fun CollectionDetailScreen(
     viewModel: CollectionViewModel = hiltViewModel(),
     modifier: Modifier = Modifier,
     onBack: () -> Unit = {},
-    onEditTicket: (String) -> Unit = {},
-    onDeleted: () -> Unit = {}
+    onEditTicket: (String) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val coroutineScope = rememberCoroutineScope()
@@ -117,24 +116,11 @@ fun CollectionDetailScreen(
         ticket = uiState.findTicket(ticketId),
         isLoading = uiState.isLoading,
         errorMessage = uiState.errorMessage,
-        pendingDeleteTicket = uiState.pendingDeleteTicket,
         modifier = modifier,
         onBack = onBack,
         onTicketLikeClick = { likedTicketId ->
             coroutineScope.launch {
                 viewModel.toggleTicketLike(likedTicketId)
-            }
-        },
-        onDeleteTicket = { viewModel.requestDeleteTicket(ticketId) },
-        onDismissDelete = viewModel::dismissDeleteDialog,
-        onConfirmDelete = {
-            coroutineScope.launch {
-                viewModel.confirmDeleteTicket()
-                if (viewModel.uiState.value.pendingDeleteTicket == null &&
-                    viewModel.uiState.value.errorMessage == null
-                ) {
-                    onDeleted()
-                }
             }
         }
     )
@@ -278,13 +264,9 @@ private fun CollectionDetailContent(
     ticket: MovieTicket?,
     isLoading: Boolean,
     errorMessage: String?,
-    pendingDeleteTicket: MovieTicket?,
     modifier: Modifier = Modifier,
     onBack: () -> Unit,
-    onTicketLikeClick: (String) -> Unit,
-    onDeleteTicket: () -> Unit,
-    onDismissDelete: () -> Unit,
-    onConfirmDelete: () -> Unit
+    onTicketLikeClick: (String) -> Unit
 ) {
     Column(
         modifier = modifier
@@ -293,9 +275,7 @@ private fun CollectionDetailContent(
     ) {
         CollectionDetailTopBar(
             title = "티켓 상세",
-            showDeleteAction = ticket != null,
-            onBack = onBack,
-            onDeleteClick = onDeleteTicket
+            onBack = onBack
         )
 
         LazyColumn(
@@ -341,12 +321,6 @@ private fun CollectionDetailContent(
             }
         }
     }
-
-    DeleteTicketDialog(
-        ticket = pendingDeleteTicket,
-        onDismiss = onDismissDelete,
-        onConfirm = onConfirmDelete
-    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

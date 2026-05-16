@@ -159,8 +159,7 @@ fun MainScreen(
                         onBack = navigateBack,
                         onEditTicket = { ticketId ->
                             backStack.add(ScreenDestination.CollectionEdit(ticketId))
-                        },
-                        onDeleted = { navigateToTopLevelDestination(ScreenDestination.Collection) }
+                        }
                     )
                 }
 

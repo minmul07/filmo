@@ -406,7 +406,6 @@ class RemoteAppRepository @Inject constructor(
             watchedTime = string("watchedTime"),
             review = string("review"),
             rating = int("rating").coerceIn(MIN_TICKET_RATING, MAX_TICKET_RATING),
-            ownerNickname = string("ownerNickname"),
             liked = booleanOrNull("liked") ?: false,
             likeCount = int("likeCount").coerceAtLeast(0)
         )

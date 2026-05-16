@@ -216,9 +216,6 @@ private fun PublicTicketCard(
     val watchedDateText = remember(ticket.watchedDate) {
         ticket.watchedDate.toTicketViewWatchedDateText()
     }
-    val ownerNickname = ticket.ownerNickname.ifBlank {
-        "익명 시네필"
-    }
     val ticketShape = remember {
         TicketViewTicketShape(
             cornerCutout = 10.dp,
@@ -232,7 +229,7 @@ private fun PublicTicketCard(
             .fillMaxWidth()
             .aspectRatio(TicketViewTicketAspectRatio)
             .semantics(mergeDescendants = true) {
-                contentDescription = "${ownerNickname}님의 ${ticket.movieTitle} 공개 티켓, 별점 ${ticket.rating}/5점, 관람일 $watchedDateText"
+                contentDescription = "${ticket.movieTitle} 공개 티켓, 별점 ${ticket.rating}/5점, 관람일 $watchedDateText"
             },
         shape = ticketShape,
         color = MaterialTheme.colorScheme.surface,
@@ -275,7 +272,6 @@ private fun PublicTicketCard(
                             )
                             TicketViewLikeButton(
                                 liked = ticket.liked,
-                                likeCount = ticket.likeCount,
                                 onClick = onLikeClick
                             )
                         }
@@ -291,7 +287,6 @@ private fun PublicTicketCard(
                 PublicTicketDetailArea(
                     rating = ticket.rating,
                     watchedDateText = watchedDateText,
-                    ownerNickname = ownerNickname,
                     review = ticket.review,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -309,29 +304,23 @@ private fun PublicTicketCard(
 @Composable
 private fun TicketViewLikeButton(
     liked: Boolean,
-    likeCount: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(2.dp)
+    IconButton(
+        onClick = onClick,
+        modifier = modifier
     ) {
-        Text(
-            text = likeCount.toString(),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary,
-            maxLines = 1
+        Icon(
+            imageVector = if (liked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+            contentDescription = if (liked) "좋아요 취소" else "좋아요",
+            modifier = Modifier.size(18.dp),
+            tint = if (liked) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.outline
+            }
         )
-        IconButton(onClick = onClick) {
-            Icon(
-                imageVector = if (liked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                contentDescription = if (liked) "좋아요 취소" else "좋아요",
-                modifier = Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
     }
 }
 
@@ -339,7 +328,6 @@ private fun TicketViewLikeButton(
 private fun PublicTicketDetailArea(
     rating: Int,
     watchedDateText: String,
-    ownerNickname: String,
     review: String,
     modifier: Modifier = Modifier
 ) {
@@ -370,13 +358,6 @@ private fun PublicTicketDetailArea(
                 text = "관람 후기",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = ownerNickname,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = review.ifBlank { "남긴 관람 후기가 없어요." },

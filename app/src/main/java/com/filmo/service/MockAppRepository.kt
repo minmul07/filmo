@@ -241,11 +241,6 @@ class MockAppRepository @Inject constructor() : AppRepository {
                 watchedTime = "19:30",
                 review = ticket.review,
                 rating = ticket.rating,
-                ownerNickname = if (ticket.ownedByMe) {
-                    "모크사용자"
-                } else {
-                    "독립영화user1234"
-                },
                 liked = ticket.liked,
                 likeCount = ticket.likeCount
             )

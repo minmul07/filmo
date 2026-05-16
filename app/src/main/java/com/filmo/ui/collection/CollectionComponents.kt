@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.outlined.ArrowBackIosNew
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -172,9 +173,7 @@ internal fun BackTextHeader(
 @Composable
 internal fun CollectionDetailTopBar(
     title: String,
-    showDeleteAction: Boolean,
     onBack: () -> Unit,
-    onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     FilmoTopBar(
@@ -187,7 +186,7 @@ internal fun CollectionDetailTopBar(
             modifier = Modifier.align(Alignment.CenterStart)
         ) {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                imageVector = Icons.Outlined.ArrowBackIosNew,
                 contentDescription = "뒤로가기",
                 tint = MaterialTheme.colorScheme.onSurface
             )
@@ -198,17 +197,5 @@ internal fun CollectionDetailTopBar(
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.onSurface
         )
-        if (showDeleteAction) {
-            IconButton(
-                onClick = onDeleteClick,
-                modifier = Modifier.align(Alignment.CenterEnd)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Delete,
-                    contentDescription = "티켓 삭제",
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            }
-        }
     }
 }

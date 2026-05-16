@@ -237,7 +237,6 @@ internal fun CollectionDetailTicketCard(
                             )
                             CollectionTicketLikeButton(
                                 liked = ticket.liked,
-                                likeCount = ticket.likeCount,
                                 onClick = onLikeClick
                             )
                         }
@@ -331,7 +330,6 @@ internal fun CollectionTicketCard(
                     )
                     CollectionTicketLikeButton(
                         liked = ticket.liked,
-                        likeCount = ticket.likeCount,
                         onClick = onLikeClick,
                         contentColor = MaterialTheme.colorScheme.primary
                     )
@@ -372,30 +370,20 @@ internal fun CollectionTicketCard(
 @Composable
 private fun CollectionTicketLikeButton(
     liked: Boolean,
-    likeCount: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     contentColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary
 ) {
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(2.dp)
+    IconButton(
+        onClick = onClick,
+        modifier = modifier
     ) {
-        Text(
-            text = likeCount.toString(),
-            style = MaterialTheme.typography.labelMedium,
-            color = contentColor,
-            maxLines = 1
+        Icon(
+            imageVector = if (liked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+            contentDescription = if (liked) "좋아요 취소" else "좋아요",
+            modifier = Modifier.size(18.dp),
+            tint = if (liked) contentColor else MaterialTheme.colorScheme.outline
         )
-        IconButton(onClick = onClick) {
-            Icon(
-                imageVector = if (liked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                contentDescription = if (liked) "좋아요 취소" else "좋아요",
-                modifier = Modifier.size(18.dp),
-                tint = contentColor
-            )
-        }
     }
 }
 

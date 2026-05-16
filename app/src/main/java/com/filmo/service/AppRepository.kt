@@ -159,7 +159,6 @@ data class PublicTicket(
     val watchedTime: String,
     val review: String,
     val rating: Int = 0,
-    val ownerNickname: String = "",
     val liked: Boolean = false,
     val likeCount: Int = 0
 )

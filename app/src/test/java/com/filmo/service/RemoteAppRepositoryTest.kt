@@ -326,8 +326,7 @@ class RemoteAppRepositoryTest {
                           "review": "저장해 두고 다시 보고 싶은 티켓",
                           "showYn": true,
                           "createdAt": "2026-05-17T13:51:52.335Z",
-                          "updatedAt": "2026-05-17T13:51:52.335Z",
-                          "ownerNickname": "다른관객"
+                          "updatedAt": "2026-05-17T13:51:52.335Z"
                         }
                       ]
                     }
@@ -539,7 +538,6 @@ class RemoteAppRepositoryTest {
                 watchedDate = "2026-05-16",
                 watchedTime = "19:30",
                 rating = 3,
-                ownerNickname = "",
                 review = "작고 단단한 영화였어요",
                 liked = true,
                 likeCount = 7
