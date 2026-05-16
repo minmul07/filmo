@@ -1,6 +1,7 @@
 package com.filmo.ui.movie
 
 import com.filmo.service.AppRepository
+import com.filmo.service.CreateTicketRequest
 import com.filmo.service.MovieCatalogItem
 import com.filmo.service.MovieCatalogPage
 import com.filmo.service.MovieDetail
@@ -117,7 +118,7 @@ class RegisterMovieViewModelTest {
         viewModel.goToNextStep()
 
         assertEquals(RegisterMovieStep.MovieInfo, viewModel.uiState.value.step)
-        assertEquals("관람일, 별점, 관람 후기를 입력해 주세요.", viewModel.uiState.value.errorMessage)
+        assertEquals("영화관, 관람일, 별점, 관람 후기를 입력해 주세요.", viewModel.uiState.value.errorMessage)
     }
 
     @Test
@@ -136,6 +137,34 @@ class RegisterMovieViewModelTest {
 
         assertEquals(RegisterMovieStep.Share, viewModel.uiState.value.step)
         assertEquals(null, viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun backFromViewingInfoReturnsToMovieSearch() {
+        val viewModel = RegisterMovieViewModel(FakeAppRepository())
+
+        viewModel.selectMovie(FakeMovies.first())
+
+        assertEquals(true, viewModel.goBack())
+        assertEquals(RegisterMovieStep.MovieSearch, viewModel.uiState.value.step)
+    }
+
+    @Test
+    fun backFromShareReturnsToViewingInfo() {
+        val viewModel = RegisterMovieViewModel(FakeAppRepository())
+
+        viewModel.selectMovie(FakeMovies.first())
+        viewModel.updateTheaterName("아트나인")
+        viewModel.updateReleaseDateMillis(
+            releaseDateMillis = 1_609_459_200_000L,
+            nowMillis = 1_609_545_600_000L
+        )
+        viewModel.updateRating(4)
+        viewModel.updateReview("다시 곱씹게 되는 영화.")
+        viewModel.goToNextStep()
+
+        assertEquals(true, viewModel.goBack())
+        assertEquals(RegisterMovieStep.MovieInfo, viewModel.uiState.value.step)
     }
 
     @Test
@@ -172,6 +201,38 @@ class RegisterMovieViewModelTest {
     }
 
     @Test
+    fun createTicketFromShareStepSendsTicketRequestToRepository() = runBlocking {
+        val repository = FakeAppRepository()
+        val viewModel = RegisterMovieViewModel(repository)
+
+        viewModel.selectMovie(FakeMovies.first().copy(id = "1001"))
+        viewModel.updateTheaterName("인디스페이스")
+        viewModel.updateReleaseDateMillis(
+            releaseDateMillis = 1_778_889_600_000L,
+            nowMillis = 1_778_976_000_000L
+        )
+        viewModel.updateRating(5)
+        viewModel.updateReview("작고 단단한 영화였어요")
+        viewModel.goToNextStep()
+
+        val result = viewModel.createTicket()
+
+        assertEquals(true, result)
+        assertEquals(
+            CreateTicketRequest(
+                movieId = "1001",
+                watchedDate = "2026-05-16",
+                watchedTime = "00:00",
+                cinema = "인디스페이스",
+                review = "작고 단단한 영화였어요"
+            ),
+            repository.createdTicketRequests.single()
+        )
+        assertEquals(false, viewModel.uiState.value.isTicketCreateLoading)
+        assertEquals(null, viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
     fun resetReturnsToInitialSearchStep() {
         val viewModel = RegisterMovieViewModel(FakeAppRepository())
 
@@ -188,6 +249,7 @@ class RegisterMovieViewModelTest {
     ) : AppRepository {
         val requestedMoviePages = mutableListOf<Int>()
         val requestedMovieSizes = mutableListOf<Int>()
+        val createdTicketRequests = mutableListOf<CreateTicketRequest>()
 
         override suspend fun ping(): Result<String> = Result.success("pong")
 
@@ -254,6 +316,11 @@ class RegisterMovieViewModelTest {
 
         override suspend fun updateMyTicket(request: UpdateTicketRequest): Result<MovieTicket> {
             return Result.failure(UnsupportedOperationException("Not needed in this test"))
+        }
+
+        override suspend fun createTicket(request: CreateTicketRequest): Result<Unit> {
+            createdTicketRequests += request
+            return Result.success(Unit)
         }
 
         override suspend fun deleteMyTicket(ticketId: String): Result<Unit> {

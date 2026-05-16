@@ -109,6 +109,45 @@ class RemoteAppRepositoryTest {
     }
 
     @Test
+    fun fetchMyProfileMapsSwaggerMeResponse() = runBlocking {
+        val repository = RemoteAppRepository(
+            FakeApiService(
+                meResponse = """
+                    {
+                      "code": 200,
+                      "message": "OK",
+                      "data": {
+                        "id": 7,
+                        "loginId": "user7",
+                        "nickname": "인디콜렉터",
+                        "intro": "작은 극장을 자주 찾습니다.",
+                        "ticketCount": 12,
+                        "savedTicketCount": 8,
+                        "savedTheaterCount": 5
+                      }
+                    }
+                """.trimIndent()
+            )
+        )
+
+        val result = repository.fetchMyProfile()
+
+        assertTrue(result.isSuccess)
+        assertEquals(
+            UserProfile(
+                id = "7",
+                loginId = "user7",
+                nickname = "인디콜렉터",
+                intro = "작은 극장을 자주 찾습니다.",
+                ticketCount = 12,
+                savedTicketCount = 8,
+                savedTheaterCount = 5
+            ),
+            result.getOrThrow()
+        )
+    }
+
+    @Test
     fun fetchMovieCatalogMapsSwaggerMovieListResponse() = runBlocking {
         val repository = RemoteAppRepository(
             FakeApiService(
@@ -456,6 +495,28 @@ class RemoteAppRepositoryTest {
         assertTrue(collection.savedTickets.isEmpty())
     }
 
+    @Test
+    fun createTicketPostsSwaggerTicketRequest() = runBlocking {
+        val apiService = FakeApiService()
+        val repository = RemoteAppRepository(apiService)
+
+        val result = repository.createTicket(
+            CreateTicketRequest(
+                movieId = "1001",
+                watchedDate = "2026-05-16",
+                watchedTime = "00:00",
+                cinema = "인디스페이스",
+                review = "작고 단단한 영화였어요"
+            )
+        )
+
+        assertTrue(result.isSuccess)
+        assertEquals(
+            """{"movieSeq":1001,"watchedDate":"2026-05-16","watchedTime":"00:00","cinema":"인디스페이스","review":"작고 단단한 영화였어요"}""",
+            apiService.createdTicketBody
+        )
+    }
+
     private class FakeApiService(
         private val signupResponse: String = """{"data":{"accessToken":"signup-token"}}""",
         private val loginResponse: String = """{"data":{"accessToken":"login-token"}}""",
@@ -485,6 +546,8 @@ class RemoteAppRepositoryTest {
             private set
         var removedSavedTheaterId: String? = null
             private set
+        var createdTicketBody: String? = null
+            private set
 
         override suspend fun ping(): ResponseBody = """{"data":null}""".toResponseBody()
 
@@ -510,13 +573,10 @@ class RemoteAppRepositoryTest {
         override suspend fun fetchRandomNickname(): ResponseBody =
             randomNicknameResponse.toResponseBody()
 
-        override suspend fun fetchMe(authorization: String): ResponseBody {
+        override suspend fun fetchMe(authorization: String?): ResponseBody {
             meAuthorization = authorization
             return meResponse.toResponseBody()
         }
-
-        override suspend fun authTest(authorization: String): ResponseBody =
-            """{"data":"ok"}""".toResponseBody()
 
         override suspend fun fetchMovies(
             keyword: String?,
@@ -563,6 +623,13 @@ class RemoteAppRepositoryTest {
 
         override suspend fun fetchTickets(): ResponseBody =
             ticketsResponse.toResponseBody()
+
+        override suspend fun createTicket(body: RequestBody): ResponseBody {
+            val buffer = Buffer()
+            body.writeTo(buffer)
+            createdTicketBody = buffer.readUtf8()
+            return """{"code":200,"message":"OK","data":null}""".toResponseBody()
+        }
     }
 
     private class CapturingTimberTree : Timber.Tree() {

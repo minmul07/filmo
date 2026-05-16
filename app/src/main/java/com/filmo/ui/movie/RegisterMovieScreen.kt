@@ -1,8 +1,8 @@
 package com.filmo.ui.movie
 
-import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -34,10 +34,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.filmo.service.MovieCatalogItem
@@ -50,27 +51,31 @@ import java.time.ZoneId
 fun RegisterMovieScreen(
     viewModel: RegisterMovieViewModel = hiltViewModel(),
     modifier: Modifier = Modifier,
+    searchBottomPadding: Dp = 0.dp,
     onBack: () -> Unit = {},
     onNavigateToCollection: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val coroutineScope = rememberCoroutineScope()
-    val context = LocalContext.current
-
-    LaunchedEffect(viewModel) {
-        viewModel.loadMovieCatalog()
-    }
-
-    BackHandler {
+    val handleBack = {
         val handledByStep = viewModel.goBack()
         if (!handledByStep) {
             onBack()
         }
     }
 
+    LaunchedEffect(viewModel) {
+        viewModel.loadMovieCatalog()
+    }
+
+    BackHandler {
+        handleBack()
+    }
+
     RegisterMovieContent(
         uiState = uiState,
         modifier = modifier,
+        searchBottomPadding = searchBottomPadding,
         onSearchQueryChange = viewModel::updateSearchQuery,
         onLoadMovies = {
             coroutineScope.launch {
@@ -82,23 +87,21 @@ fun RegisterMovieScreen(
                 viewModel.loadNextMovieCatalogPage()
             }
         },
-        onMovieClick = viewModel::selectMovie,
+        onMovieClick = { movie ->
+            viewModel.selectMovie(movie)
+        },
         onReleaseDateChange = viewModel::updateReleaseDateMillis,
+        onTheaterNameChange = viewModel::updateTheaterName,
         onRatingChange = viewModel::updateRating,
         onReviewChange = viewModel::updateReview,
         onNext = viewModel::goToNextStep,
-        onBack = {
-            val handledByStep = viewModel.goBack()
-            if (!handledByStep) {
-                onBack()
-            }
-        },
+        onBack = handleBack,
         onShareClick = {
-            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, toTicketShareText(uiState))
+            coroutineScope.launch {
+                if (viewModel.createTicket()) {
+                    onNavigateToCollection()
+                }
             }
-            context.startActivity(Intent.createChooser(shareIntent, "티켓 공유"))
         }
     )
 }
@@ -108,11 +111,13 @@ fun RegisterMovieScreen(
 private fun RegisterMovieContent(
     uiState: RegisterMovieUiState,
     modifier: Modifier = Modifier,
+    searchBottomPadding: Dp = 0.dp,
     onSearchQueryChange: (String) -> Unit = {},
     onLoadMovies: () -> Unit = {},
     onLoadNextMovies: () -> Unit = {},
     onMovieClick: (MovieCatalogItem) -> Unit = {},
     onReleaseDateChange: (Long?) -> Unit = {},
+    onTheaterNameChange: (String) -> Unit = {},
     onRatingChange: (Int) -> Unit = {},
     onReviewChange: (String) -> Unit = {},
     onNext: () -> Unit = {},
@@ -136,20 +141,23 @@ private fun RegisterMovieContent(
         modifier = modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets(0.dp)
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
-                .padding(horizontal = 24.dp)
         ) {
-            RegisterMovieHeader(
-                step = uiState.step,
-                onBack = onBack
-            )
-
-            when (uiState.step) {
-                RegisterMovieStep.MovieSearch -> MovieSearchStep(
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = searchBottomPadding)
+            ) {
+                RegisterMovieHeader(
+                    step = RegisterMovieStep.MovieSearch,
+                    onBack = onBack
+                )
+                MovieSearchStep(
                     query = uiState.searchQuery,
                     movies = uiState.filteredMovies,
                     isLoading = uiState.isMovieCatalogLoading,
@@ -162,22 +170,41 @@ private fun RegisterMovieContent(
                     onRetryClick = onLoadMovies,
                     onLoadNextMovies = onLoadNextMovies
                 )
+            }
 
-                RegisterMovieStep.MovieInfo -> MovieInfoStep(
-                    uiState = uiState,
-                    errorMessage = uiState.errorMessage,
-                    posterImageCache = posterImageCache,
-                    onReleaseDateClick = { isDatePickerOpen = true },
-                    onRatingChange = onRatingChange,
-                    onReviewChange = onReviewChange,
-                    onNext = onNext
-                )
+            if (uiState.step != RegisterMovieStep.MovieSearch) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .zIndex(1f)
+                        .background(MaterialTheme.colorScheme.background)
+                        .padding(horizontal = 24.dp)
+                ) {
+                    RegisterMovieHeader(
+                        step = uiState.step,
+                        onBack = onBack
+                    )
 
-                RegisterMovieStep.Share -> TicketShareStep(
-                    uiState = uiState,
-                    posterImageCache = posterImageCache,
-                    onShareClick = onShareClick
-                )
+                    when (uiState.step) {
+                        RegisterMovieStep.MovieSearch -> Unit
+                        RegisterMovieStep.MovieInfo -> MovieInfoStep(
+                            uiState = uiState,
+                            errorMessage = uiState.errorMessage,
+                            posterImageCache = posterImageCache,
+                            onReleaseDateClick = { isDatePickerOpen = true },
+                            onTheaterNameChange = onTheaterNameChange,
+                            onRatingChange = onRatingChange,
+                            onReviewChange = onReviewChange,
+                            onNext = onNext
+                        )
+
+                        RegisterMovieStep.Share -> TicketShareStep(
+                            uiState = uiState,
+                            posterImageCache = posterImageCache,
+                            onShareClick = onShareClick
+                        )
+                    }
+                }
             }
         }
     }
@@ -281,21 +308,6 @@ private val RegisterMovieStep.index: Int
         RegisterMovieStep.MovieInfo -> 2
         RegisterMovieStep.Share -> 2
     }
-
-private fun toTicketShareText(uiState: RegisterMovieUiState): String {
-    val titleText = uiState.title.ifBlank { uiState.selectedMovie?.title.orEmpty() }.ifBlank { "영화" }
-    val watchedDateText = uiState.releaseDateMillis.toWatchedDateWithYearText().ifBlank { "관람일 미입력" }
-    val ratingText = uiState.rating?.let { "$it/5점" } ?: "별점 미입력"
-    val reviewText = uiState.review.ifBlank { "관람 후기를 남기지 않았어요." }
-
-    return listOf(
-        "FILMO 티켓",
-        titleText,
-        watchedDateText,
-        ratingText,
-        reviewText
-    ).joinToString(separator = "\n")
-}
 
 @Preview(showBackground = true)
 @Composable

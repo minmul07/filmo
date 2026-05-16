@@ -6,13 +6,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -21,7 +19,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.ConfirmationNumber
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Button
@@ -30,12 +27,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -48,7 +44,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.filmo.BuildConfig
+import com.filmo.service.UserProfile
 import com.filmo.ui.theme.FilmoTheme
 import kotlinx.coroutines.launch
 
@@ -56,33 +52,31 @@ import kotlinx.coroutines.launch
 fun ProfileRoute(
     modifier: Modifier = Modifier
 ) {
-    if (BuildConfig.DEBUG) {
-        val viewModel: ProfileDebugAuthViewModel = hiltViewModel()
-        val debugAuthState by viewModel.uiState.collectAsStateWithLifecycle()
-        val coroutineScope = rememberCoroutineScope()
+    val viewModel: ProfileViewModel = hiltViewModel()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val coroutineScope = rememberCoroutineScope()
 
-        ProfileScreen(
-            modifier = modifier,
-            debugAuthState = debugAuthState,
-            onRunDebugAuthTest = { credential ->
-                coroutineScope.launch {
-                    viewModel.runAuthTest(credential)
-                }
-            }
-        )
-    } else {
-        ProfileScreen(modifier = modifier)
+    LaunchedEffect(Unit) {
+        viewModel.loadProfile()
     }
+
+    ProfileScreen(
+        uiState = uiState,
+        onRetry = {
+            coroutineScope.launch {
+                viewModel.loadProfile()
+            }
+        },
+        modifier = modifier
+    )
 }
 
 @Composable
 fun ProfileScreen(
-    debugAuthState: ProfileDebugAuthUiState = ProfileDebugAuthUiState(),
-    onRunDebugAuthTest: (DebugAuthTestCredential) -> Unit = {},
+    uiState: ProfileUiState,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val profile = MockProfile
-
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -103,103 +97,19 @@ fun ProfileScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 ProfileHeader()
-                ProfileSummaryCard(profile = profile)
-                ActivitySummaryCard(activityItems = profile.activityItems)
-                if (BuildConfig.DEBUG) {
-                    DebugAuthTestCard(
-                        uiState = debugAuthState,
-                        onRunAuthTest = onRunDebugAuthTest
+                when {
+                    uiState.isLoading && uiState.profile == null -> LoadingProfileCard()
+                    uiState.errorMessage != null && uiState.profile == null -> ErrorProfileCard(
+                        message = uiState.errorMessage,
+                        onRetry = onRetry
                     )
-                    Button(
-                        onClick = {},
-
-                    ){
-                        Text(text = "영화 DB 캐시 초기화")
+                    uiState.profile != null -> {
+                        ProfileSummaryCard(profile = uiState.profile)
+                        ActivitySummaryCard(activityItems = uiState.profile.toActivitySummaryItems())
                     }
+                    else -> EmptyProfileCard(onRetry = onRetry)
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun DebugAuthTestCard(
-    uiState: ProfileDebugAuthUiState,
-    onRunAuthTest: (DebugAuthTestCredential) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Text(
-                text = "Auth API 테스트",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            DebugAuthTestCredentials.forEach { credential ->
-                DebugAuthTestRow(
-                    credential = credential,
-                    requestState = uiState.requestStates[credential.loginId]
-                        ?: DebugAuthTestRequestState.Idle,
-                    onRunAuthTest = onRunAuthTest
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun DebugAuthTestRow(
-    credential: DebugAuthTestCredential,
-    requestState: DebugAuthTestRequestState,
-    onRunAuthTest: (DebugAuthTestCredential) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        OutlinedButton(
-            onClick = { onRunAuthTest(credential) },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = requestState !is DebugAuthTestRequestState.Loading
-        ) {
-            if (requestState is DebugAuthTestRequestState.Loading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    strokeWidth = 2.dp
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-            Text("${credential.loginId} auth-test 요청")
-        }
-
-        when (requestState) {
-            DebugAuthTestRequestState.Idle,
-            DebugAuthTestRequestState.Loading -> Unit
-
-            is DebugAuthTestRequestState.Success -> Text(
-                text = requestState.message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            is DebugAuthTestRequestState.Error -> Text(
-                text = requestState.message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error
-            )
         }
     }
 }
@@ -229,7 +139,7 @@ private fun ProfileHeader(
 
 @Composable
 private fun ProfileSummaryCard(
-    profile: ProfileMockData,
+    profile: UserProfile,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -263,17 +173,9 @@ private fun ProfileSummaryCard(
                     )
 
                     Text(
-                        text = profile.description,
+                        text = profile.intro.ifBlank { "아직 소개가 없어요" },
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                IconButton(onClick = { }) {
-                    Icon(
-                        imageVector = Icons.Outlined.Edit,
-                        contentDescription = "프로필 편집",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -281,26 +183,14 @@ private fun ProfileSummaryCard(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "취향 태그",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    Text(
-                        text = "편집",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Text(
+                    text = "계정 정보",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
 
                 Text(
-                    text = profile.tagHint,
+                    text = profile.loginId.ifBlank { "로그인 ID 정보가 없어요" },
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -331,7 +221,7 @@ private fun ProfileAvatar(
 
 @Composable
 private fun ActivitySummaryCard(
-    activityItems: List<ActivitySummaryMockData>,
+    activityItems: List<ActivitySummaryItem>,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -362,7 +252,7 @@ private fun ActivitySummaryCard(
 
 @Composable
 private fun ActivitySummaryRow(
-    item: ActivitySummaryMockData,
+    item: ActivitySummaryItem,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -409,46 +299,118 @@ private fun ActivitySummaryRow(
     }
 }
 
-private data class ProfileMockData(
-    val nickname: String,
-    val description: String,
-    val tagHint: String,
-    val activityItems: List<ActivitySummaryMockData>
-)
+@Composable
+private fun LoadingProfileCard(
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(220.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+    }
+}
 
-private data class ActivitySummaryMockData(
+@Composable
+private fun ErrorProfileCard(
+    message: String,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 28.dp, vertical = 30.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Button(onClick = onRetry) {
+                Text(text = "다시 시도")
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyProfileCard(
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    ErrorProfileCard(
+        message = "표시할 프로필 정보가 없어요.",
+        onRetry = onRetry,
+        modifier = modifier
+    )
+}
+
+private data class ActivitySummaryItem(
     val label: String,
     val count: Int,
     val icon: ImageVector
 )
 
-private val MockProfile = ProfileMockData(
-    nickname = "시네필여행자965",
-    description = "익명 사용자",
-    tagHint = "취향 태그를 추가해보세요",
-    activityItems = listOf(
-        ActivitySummaryMockData(
+private fun UserProfile.toActivitySummaryItems(): List<ActivitySummaryItem> {
+    return listOf(
+        ActivitySummaryItem(
             label = "작성한 티켓",
-            count = 12,
+            count = ticketCount,
             icon = Icons.Outlined.ConfirmationNumber
         ),
-        ActivitySummaryMockData(
+        ActivitySummaryItem(
             label = "저장한 티켓",
-            count = 8,
+            count = savedTicketCount,
             icon = Icons.Outlined.BookmarkBorder
         ),
-        ActivitySummaryMockData(
+        ActivitySummaryItem(
             label = "저장한 영화관",
-            count = 5,
+            count = savedTheaterCount,
             icon = Icons.Outlined.LocationOn
         )
     )
+}
+
+private val PreviewProfile = UserProfile(
+    id = "preview",
+    loginId = "preview-user",
+    nickname = "시네필여행자965",
+    intro = "독립영화와 작은 극장을 기록하고 있어요.",
+    ticketCount = 12,
+    savedTicketCount = 8,
+    savedTheaterCount = 5
 )
 
 @Preview(showBackground = true)
 @Composable
 private fun ProfileScreenPreview() {
     FilmoTheme {
-        ProfileScreen()
+        ProfileScreen(
+            uiState = ProfileUiState(profile = PreviewProfile),
+            onRetry = {}
+        )
     }
 }

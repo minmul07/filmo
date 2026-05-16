@@ -196,6 +196,18 @@ class MockAppRepository @Inject constructor() : AppRepository {
         "시네필여행자${(100..999).random()}"
     }
 
+    override suspend fun fetchMyProfile(): Result<UserProfile> = withMockDelay("fetchMyProfile") {
+        UserProfile(
+            id = "mock-user",
+            loginId = "mock-user",
+            nickname = "모크사용자",
+            intro = "독립영화와 작은 극장을 기록하고 있어요.",
+            ticketCount = myTickets.size,
+            savedTicketCount = savedTickets.size,
+            savedTheaterCount = savedTheaterIds.size
+        )
+    }
+
     override suspend fun fetchItems(): Result<List<SampleItem>> = withMockDelay("fetchItems") {
         listOf(
             SampleItem(
@@ -291,6 +303,24 @@ class MockAppRepository @Inject constructor() : AppRepository {
             myTickets = myTickets.toList(),
             savedTickets = savedTickets.toList()
         )
+    }
+
+    override suspend fun createTicket(request: CreateTicketRequest): Result<Unit> = withMockDelay(
+        "createTicket(movieId=${request.movieId}, watchedDateLength=${request.watchedDate.length}, cinemaLength=${request.cinema.length}, reviewLength=${request.review.length})"
+    ) {
+        val movieTitle = movieDetails.firstOrNull { it.id == request.movieId }?.title
+            ?: "영화 #${request.movieId}"
+        myTickets += MovieTicket(
+            id = "my-ticket-${myTickets.size + 1}",
+            movieTitle = movieTitle,
+            theaterName = request.cinema,
+            watchedDate = request.watchedDate,
+            rating = 0,
+            review = request.review,
+            ownedByMe = true,
+            savedByMe = false
+        )
+        Unit
     }
 
     override suspend fun updateMyTicket(request: UpdateTicketRequest): Result<MovieTicket> = withMockDelay(

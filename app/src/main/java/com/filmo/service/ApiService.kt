@@ -41,12 +41,7 @@ interface ApiService {
 
     @GET("api/users/me")
     suspend fun fetchMe(
-        @Header("Authorization") authorization: String
-    ): ResponseBody
-
-    @GET("auth-test")
-    suspend fun authTest(
-        @Header("Authorization") authorization: String
+        @Header("Authorization") authorization: String? = null
     ): ResponseBody
 
     @GET("api/movies")
@@ -94,4 +89,9 @@ interface ApiService {
 
     @GET("api/tickets")
     suspend fun fetchTickets(): ResponseBody
+
+    @POST("api/tickets")
+    suspend fun createTicket(
+        @Body body: RequestBody
+    ): ResponseBody
 }

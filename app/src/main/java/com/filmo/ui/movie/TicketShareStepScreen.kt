@@ -47,11 +47,13 @@ internal fun TicketShareStep(
 ) {
     StepContent(
         action = {
+            ErrorText(errorMessage = uiState.errorMessage)
             Button(
                 onClick = onShareClick,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(68.dp),
+                enabled = !uiState.isTicketCreateLoading,
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.inverseSurface,
@@ -59,7 +61,7 @@ internal fun TicketShareStep(
                 )
             ) {
                 Text(
-                    text = "공유하기",
+                    text = if (uiState.isTicketCreateLoading) "티켓 생성 중..." else "공유하기",
                     style = MaterialTheme.typography.titleMedium
                 )
             }
@@ -106,7 +108,7 @@ private fun MovieShareTicket(
     val watchedDate = uiState.releaseDateMillis.toWatchedDateWithYearText().ifBlank { "관람일" }
     val ratingText = uiState.rating?.let { "$it/5점" } ?: "-/5점"
     val ticketShape = remember {
-        TicketShape(
+        TicketShape( // 티켓 모서리 컷아웃
             cornerCutout = 20.dp,
             sideNotchRadius = 20.dp,
             perforationFraction = TicketPerforationFraction

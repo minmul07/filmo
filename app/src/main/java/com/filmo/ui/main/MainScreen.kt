@@ -1,13 +1,14 @@
 package com.filmo.ui.main
 
-import androidx.compose.animation.core.animateIntAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
@@ -17,7 +18,6 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -25,12 +25,14 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
@@ -71,38 +73,35 @@ fun MainScreen(
             backStack.removeAt(backStack.lastIndex)
         }
     }
-    val isRecordDestination = currentDestination == ScreenDestination.Record
-    val isCollectionSubDestination = currentDestination is ScreenDestination.CollectionDetail ||
-        currentDestination is ScreenDestination.CollectionEdit
-    val isTheaterSubDestination = currentDestination is ScreenDestination.TheaterDetail
+    var bottomBarHeightPx by remember { mutableIntStateOf(0) }
+    val bottomBarHeight = with(LocalDensity.current) { bottomBarHeightPx.toDp() }
+    val reserveBottomBarSpace = shouldReserveBottomBarSpace(
+        currentDestination = currentDestination
+    )
     val layoutDirection = LocalLayoutDirection.current
+    val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        bottomBar = {
-            FilmoBottomBar(
-                currentDestination = currentDestination,
-                hidden = isRecordDestination || isCollectionSubDestination || isTheaterSubDestination,
-                onDestinationClick = navigateToTopLevelDestination
-            )
-        }
-    ) { innerPadding ->
-        val contentPadding = if (isRecordDestination || isCollectionSubDestination || isTheaterSubDestination) {
-            PaddingValues(
-                start = innerPadding.calculateStartPadding(layoutDirection),
-                top = innerPadding.calculateTopPadding(),
-                end = innerPadding.calculateEndPadding(layoutDirection),
-                bottom = 0.dp
-            )
-        } else {
-            innerPadding
-        }
-
+    Box(modifier = Modifier.fillMaxSize()) {
+        FilmoBottomBar(
+            currentDestination = currentDestination,
+            onDestinationClick = navigateToTopLevelDestination,
+            onHeightChanged = { bottomBarHeightPx = it },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .zIndex(0f)
+        )
         NavDisplay(
             backStack = backStack,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(contentPadding),
+                .padding(
+                    start = safeDrawingPadding.calculateStartPadding(layoutDirection),
+                    top = safeDrawingPadding.calculateTopPadding(),
+                    end = safeDrawingPadding.calculateEndPadding(layoutDirection),
+                    bottom = if (reserveBottomBarSpace) bottomBarHeight else 0.dp
+                )
+                .zIndex(1f),
             entryDecorators = listOf(
                 rememberSaveableStateHolderNavEntryDecorator(),
                 rememberViewModelStoreNavEntryDecorator()
@@ -115,6 +114,7 @@ fun MainScreen(
 
                 entry<ScreenDestination.Record> {
                     RegisterMovieScreen(
+                        searchBottomPadding = bottomBarHeight,
                         onBack = { navigateToTopLevelDestination(ScreenDestination.Feed) },
                         onNavigateToCollection = {
                             navigateToTopLevelDestination(ScreenDestination.Collection)
@@ -187,23 +187,27 @@ fun MainScreen(
     }
 }
 
+internal fun shouldReserveBottomBarSpace(
+    currentDestination: ScreenDestination
+): Boolean {
+    return currentDestination != ScreenDestination.Record &&
+        currentDestination !is ScreenDestination.CollectionDetail &&
+        currentDestination !is ScreenDestination.CollectionEdit &&
+        currentDestination !is ScreenDestination.TheaterDetail
+}
+
 @Composable
 private fun FilmoBottomBar(
     currentDestination: ScreenDestination,
-    hidden: Boolean,
-    onDestinationClick: (ScreenDestination) -> Unit
+    onDestinationClick: (ScreenDestination) -> Unit,
+    onHeightChanged: (Int) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    var barHeightPx by remember { mutableIntStateOf(0) }
-    val offsetY by animateIntAsState(
-        targetValue = if (hidden) barHeightPx else 0,
-        animationSpec = tween(durationMillis = 300),
-        label = "bottom_bar_offset"
-    )
-
     NavigationBar(
-        modifier = Modifier
-            .onSizeChanged { barHeightPx = it.height }
-            .offset { IntOffset(x = 0, y = offsetY) }
+        modifier = modifier
+            .onSizeChanged {
+                onHeightChanged(it.height)
+            }
     ) {
         TopLevelDestinations.forEach { item ->
             NavigationBarItem(

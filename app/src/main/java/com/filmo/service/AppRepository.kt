@@ -13,6 +13,10 @@ interface AppRepository {
         return Result.failure(UnsupportedOperationException("Random nickname API is not implemented."))
     }
 
+    suspend fun fetchMyProfile(): Result<UserProfile> {
+        return Result.failure(UnsupportedOperationException("Profile API is not implemented."))
+    }
+
     suspend fun ping(): Result<String>
 
     suspend fun fetchItems(): Result<List<SampleItem>>
@@ -85,6 +89,10 @@ interface AppRepository {
 
     suspend fun fetchTicketCollection(): Result<TicketCollection>
 
+    suspend fun createTicket(request: CreateTicketRequest): Result<Unit> {
+        return Result.failure(UnsupportedOperationException("Ticket create API is not implemented."))
+    }
+
     suspend fun updateMyTicket(request: UpdateTicketRequest): Result<MovieTicket>
 
     suspend fun deleteMyTicket(ticketId: String): Result<Unit>
@@ -107,6 +115,16 @@ data class AuthSession(
     val loginId: String,
     val nickname: String,
     val accessToken: String
+)
+
+data class UserProfile(
+    val id: String,
+    val loginId: String,
+    val nickname: String,
+    val intro: String,
+    val ticketCount: Int,
+    val savedTicketCount: Int,
+    val savedTheaterCount: Int
 )
 
 data class SampleItem(
@@ -187,6 +205,14 @@ data class MovieTicket(
 data class TicketCollection(
     val myTickets: List<MovieTicket>,
     val savedTickets: List<MovieTicket>
+)
+
+data class CreateTicketRequest(
+    val movieId: String,
+    val watchedDate: String,
+    val watchedTime: String,
+    val cinema: String,
+    val review: String
 )
 
 data class UpdateTicketRequest(

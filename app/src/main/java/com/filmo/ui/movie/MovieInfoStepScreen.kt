@@ -39,6 +39,7 @@ internal fun MovieInfoStep(
     errorMessage: String?,
     posterImageCache: MoviePosterBitmapSessionCache,
     onReleaseDateClick: () -> Unit,
+    onTheaterNameChange: (String) -> Unit,
     onRatingChange: (Int) -> Unit,
     onReviewChange: (String) -> Unit,
     onNext: () -> Unit
@@ -56,6 +57,20 @@ internal fun MovieInfoStep(
         MovieInfoSummary(
             uiState = uiState,
             posterImageCache = posterImageCache
+        )
+        FormSectionTitle(text = "영화관")
+        OutlinedTextField(
+            value = uiState.theaterName,
+            onValueChange = onTheaterNameChange,
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = {
+                Text(
+                    text = "관람한 영화관",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp)
         )
         FormSectionTitle(text = "관람일")
         Row(

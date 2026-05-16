@@ -3,6 +3,7 @@ package com.filmo.ui.movie
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.filmo.service.AppRepository
+import com.filmo.service.CreateTicketRequest
 import com.filmo.service.MovieCatalogItem
 import com.filmo.service.MovieDetail
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -13,6 +14,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 @HiltViewModel
@@ -317,6 +321,64 @@ class RegisterMovieViewModel @Inject constructor(
         }
     }
 
+    suspend fun createTicket(): Boolean {
+        val state = _uiState.value
+        if (state.isTicketCreateLoading) {
+            Timber.d("RegisterMovieViewModel.createTicket ignored: already loading")
+            return false
+        }
+
+        val request = state.toCreateTicketRequestOrNull()
+        if (request == null) {
+            Timber.d("RegisterMovieViewModel.createTicket blocked reason=missing_required_info")
+            _uiState.update {
+                it.copy(errorMessage = "영화, 영화관, 관람일, 관람 후기를 입력해 주세요.")
+            }
+            return false
+        }
+
+        Timber.d(
+            "RegisterMovieViewModel.createTicket request movieId=%s watchedDateLength=%d cinemaLength=%d reviewLength=%d",
+            request.movieId,
+            request.watchedDate.length,
+            request.cinema.length,
+            request.review.length
+        )
+        _uiState.update {
+            it.copy(
+                isTicketCreateLoading = true,
+                errorMessage = null
+            )
+        }
+
+        val result = appRepository.createTicket(request)
+        result
+            .onSuccess {
+                Timber.d("RegisterMovieViewModel.createTicket success movieId=%s", request.movieId)
+            }
+            .onFailure {
+                Timber.w(it, "RegisterMovieViewModel.createTicket failed movieId=%s", request.movieId)
+            }
+        _uiState.update { current ->
+            result.fold(
+                onSuccess = {
+                    current.copy(
+                        isTicketCreateLoading = false,
+                        errorMessage = null
+                    )
+                },
+                onFailure = {
+                    current.copy(
+                        isTicketCreateLoading = false,
+                        errorMessage = "티켓을 생성하지 못했어요. 다시 시도해 주세요."
+                    )
+                }
+            )
+        }
+
+        return result.isSuccess
+    }
+
     fun goBack(): Boolean {
         val currentState = _uiState.value
         val previousStep = when (currentState.step) {
@@ -343,20 +405,22 @@ class RegisterMovieViewModel @Inject constructor(
     private fun moveToShareIfValid() {
         val state = _uiState.value
         val missingRequiredInfo = state.selectedMovie == null ||
+            state.theaterName.isBlank() ||
             state.releaseDateMillis == null ||
             state.rating == null ||
             state.review.isBlank()
 
         if (missingRequiredInfo) {
             Timber.d(
-                "RegisterMovieViewModel.moveToShareIfValid blocked selectedMovie=%s hasDate=%s hasRating=%s reviewBlank=%s",
+                "RegisterMovieViewModel.moveToShareIfValid blocked selectedMovie=%s theaterBlank=%s hasDate=%s hasRating=%s reviewBlank=%s",
                 state.selectedMovie != null,
+                state.theaterName.isBlank(),
                 state.releaseDateMillis != null,
                 state.rating != null,
                 state.review.isBlank()
             )
             _uiState.update {
-                it.copy(errorMessage = "관람일, 별점, 관람 후기를 입력해 주세요.")
+                it.copy(errorMessage = "영화관, 관람일, 별점, 관람 후기를 입력해 주세요.")
             }
             return
         }
@@ -382,6 +446,7 @@ data class RegisterMovieUiState(
     val selectedMovie: MovieCatalogItem? = null,
     val selectedMovieDetail: MovieDetail? = null,
     val isMovieDetailLoading: Boolean = false,
+    val isTicketCreateLoading: Boolean = false,
     val title: String = "",
     val releaseDateMillis: Long? = null,
     val genre: String = "",
@@ -404,6 +469,21 @@ data class RegisterMovieUiState(
         }
 }
 
+private fun RegisterMovieUiState.toCreateTicketRequestOrNull(): CreateTicketRequest? {
+    val movieId = selectedMovie?.id?.takeIf { it.isNotBlank() } ?: return null
+    val watchedDate = releaseDateMillis.toApiWatchedDate().takeIf { it.isNotBlank() } ?: return null
+    val cinema = theaterName.trim().takeIf { it.isNotBlank() } ?: return null
+    val trimmedReview = review.trim().takeIf { it.isNotBlank() } ?: return null
+
+    return CreateTicketRequest(
+        movieId = movieId,
+        watchedDate = watchedDate,
+        watchedTime = DefaultWatchedTime,
+        cinema = cinema,
+        review = trimmedReview
+    )
+}
+
 enum class RegisterMovieStep {
     MovieSearch,
     MovieInfo,
@@ -415,6 +495,7 @@ private const val MovieCatalogPageSize = 20
 private const val MIN_RATING = 1
 private const val MAX_RATING = 5
 private const val MAX_REVIEW_LENGTH = 100
+private const val DefaultWatchedTime = "00:00"
 
 private fun isFutureDate(dateMillis: Long, nowMillis: Long): Boolean {
     return dateMillis > nowMillis
@@ -425,4 +506,13 @@ private fun todayStartMillis(): Long {
         .atStartOfDay(java.time.ZoneId.systemDefault())
         .toInstant()
         .toEpochMilli()
+}
+
+private fun Long?.toApiWatchedDate(): String {
+    return this?.let { millis ->
+        Instant.ofEpochMilli(millis)
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
+            .format(DateTimeFormatter.ISO_LOCAL_DATE)
+    }.orEmpty()
 }

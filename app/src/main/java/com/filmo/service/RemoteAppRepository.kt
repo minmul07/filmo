@@ -89,6 +89,18 @@ class RemoteAppRepository @Inject constructor(
         Timber.w(it, "RemoteAppRepository.fetchRandomNickname failed")
     }
 
+    override suspend fun fetchMyProfile(): Result<UserProfile> = runCatching {
+        Timber.d("RemoteAppRepository.fetchMyProfile request")
+        JsonParser.parseToJsonElement(apiService.fetchMe().string())
+            .jsonObject
+            .dataObject()
+            .toUserProfile()
+    }.onSuccess { profile ->
+        Timber.d("RemoteAppRepository.fetchMyProfile success profileId=%s", profile.id)
+    }.onFailure {
+        Timber.w(it, "RemoteAppRepository.fetchMyProfile failed")
+    }
+
     override suspend fun ping(): Result<String> = runCatching {
         Timber.d("RemoteAppRepository.ping request")
         apiService.ping().string()
@@ -304,6 +316,31 @@ class RemoteAppRepository @Inject constructor(
         Timber.w(it, "RemoteAppRepository.fetchTicketCollection failed")
     }
 
+    override suspend fun createTicket(request: CreateTicketRequest): Result<Unit> = runCatching {
+        Timber.d(
+            "RemoteAppRepository.createTicket request movieId=%s watchedDateLength=%d cinemaLength=%d reviewLength=%d",
+            request.movieId,
+            request.watchedDate.length,
+            request.cinema.length,
+            request.review.length
+        )
+        val movieSeq = request.movieId.toLongOrNull() ?: error("Invalid movie id")
+        apiService.createTicket(
+            buildJsonRequestBody {
+                put("movieSeq", movieSeq)
+                put("watchedDate", request.watchedDate)
+                put("watchedTime", request.watchedTime)
+                put("cinema", request.cinema)
+                put("review", request.review)
+            }
+        ).close()
+        Unit
+    }.onSuccess {
+        Timber.d("RemoteAppRepository.createTicket success movieId=%s", request.movieId)
+    }.onFailure {
+        Timber.w(it, "RemoteAppRepository.createTicket failed movieId=%s", request.movieId)
+    }
+
     override suspend fun updateMyTicket(request: UpdateTicketRequest): Result<MovieTicket> = runCatching {
         Timber.d(
             "RemoteAppRepository.updateMyTicket request ticketId=%s theaterLength=%d watchedDateLength=%d rating=%d reviewLength=%d",
@@ -393,6 +430,18 @@ class RemoteAppRepository @Inject constructor(
         )
     }
 
+    private fun JsonObject.toUserProfile(): UserProfile {
+        return UserProfile(
+            id = string("id"),
+            loginId = string("loginId"),
+            nickname = string("nickname"),
+            intro = string("intro"),
+            ticketCount = int("ticketCount"),
+            savedTicketCount = int("savedTicketCount"),
+            savedTheaterCount = int("savedTheaterCount")
+        )
+    }
+
     private suspend fun JsonObject.toMovieTicket(ownedByMe: Boolean): MovieTicket {
         val movieSeq = string("movieSeq")
         return MovieTicket(
@@ -479,17 +528,29 @@ class RemoteAppRepository @Inject constructor(
 }
 
 private class JsonObjectBuilderScope {
-    private val entries = mutableMapOf<String, String>()
+    private val entries = mutableListOf<Pair<String, JsonValue>>()
 
     fun put(key: String, value: String) {
-        entries[key] = value
+        entries += key to JsonValue.StringValue(value)
+    }
+
+    fun put(key: String, value: Long) {
+        entries += key to JsonValue.LongValue(value)
     }
 
     fun build(): JsonObject {
         return buildJsonObject {
             entries.forEach { (key, value) ->
-                put(key, value)
+                when (value) {
+                    is JsonValue.LongValue -> put(key, value.value)
+                    is JsonValue.StringValue -> put(key, value.value)
+                }
             }
         }
+    }
+
+    private sealed interface JsonValue {
+        data class LongValue(val value: Long) : JsonValue
+        data class StringValue(val value: String) : JsonValue
     }
 }
