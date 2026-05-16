@@ -30,66 +30,36 @@ class CollectionViewModel @Inject constructor(
         Timber.d("CollectionViewModel.loadTickets request")
         _uiState.update {
             it.copy(
-                isLoading = true,
-                errorMessage = null,
-                toastMessage = null
+                isLoading = true, errorMessage = null, toastMessage = null
             )
         }
 
         val result = appRepository.fetchTicketCollection()
-        result
-            .onSuccess { collection ->
-                Timber.d(
-                    "CollectionViewModel.loadTickets success myCount=%d savedCount=%d",
-                    collection.myTickets.size,
-                    collection.savedTickets.size
+        result.onSuccess { collection ->
+            Timber.d(
+                "CollectionViewModel.loadTickets success myCount=%d savedCount=%d",
+                collection.myTickets.size,
+                collection.savedTickets.size
+            )
+        }.onFailure {
+            Timber.w(it, "CollectionViewModel.loadTickets failed")
+        }
+        _uiState.update { state ->
+            result.fold(onSuccess = { collection ->
+                state.copy(
+                    myTickets = collection.myTickets,
+                    savedTickets = collection.savedTickets,
+                    isLoading = false,
+                    errorMessage = null,
+                    toastMessage = null
                 )
-            }
-            .onFailure {
-                Timber.w(it, "CollectionViewModel.loadTickets failed")
-            }
-        _uiState.update { state ->
-            result.fold(
-                onSuccess = { collection ->
-                    state.copy(
-                        myTickets = collection.myTickets,
-                        savedTickets = collection.savedTickets,
-                        isLoading = false,
-                        errorMessage = null,
-                        toastMessage = null
-                    )
-                },
-                onFailure = {
-                    state.copy(
-                        isLoading = false,
-                        errorMessage = "티켓 컬렉션을 불러오지 못했어요. 다시 시도해 주세요.",
-                        toastMessage = null
-                    )
-                }
-            )
-        }
-    }
-
-    fun selectTab(tab: CollectionTicketTab) {
-        Timber.d("CollectionViewModel.selectTab tab=%s", tab.name)
-        _uiState.update {
-            it.copy(
-                selectedTab = tab,
-                pendingDeleteTicket = null,
-                errorMessage = null,
-                toastMessage = null
-            )
-        }
-    }
-
-    fun requestDeleteTicket(ticketId: String) {
-        Timber.d("CollectionViewModel.requestDeleteTicket ticketId=%s", ticketId)
-        _uiState.update { state ->
-            state.copy(
-                pendingDeleteTicket = state.findTicket(ticketId),
-                errorMessage = null,
-                toastMessage = null
-            )
+            }, onFailure = {
+                state.copy(
+                    isLoading = false,
+                    errorMessage = "티켓 컬렉션을 불러오지 못했어요. 다시 시도해 주세요.",
+                    toastMessage = null
+                )
+            })
         }
     }
 
@@ -110,33 +80,30 @@ class CollectionViewModel @Inject constructor(
         } else {
             appRepository.removeSavedTicket(ticket.id)
         }
-        result
-            .onSuccess {
-                Timber.d("CollectionViewModel.confirmDeleteTicket success ticketId=%s", ticket.id)
-            }
-            .onFailure {
-                Timber.w(it, "CollectionViewModel.confirmDeleteTicket failed ticketId=%s", ticket.id)
-            }
+        result.onSuccess {
+            Timber.d("CollectionViewModel.confirmDeleteTicket success ticketId=%s", ticket.id)
+        }.onFailure {
+            Timber.w(
+                it, "CollectionViewModel.confirmDeleteTicket failed ticketId=%s", ticket.id
+            )
+        }
 
         _uiState.update { state ->
-            result.fold(
-                onSuccess = {
-                    state.copy(
-                        myTickets = state.myTickets.filterNot { it.id == ticket.id },
-                        savedTickets = state.savedTickets.filterNot { it.id == ticket.id },
-                        pendingDeleteTicket = null,
-                        errorMessage = null,
-                        toastMessage = null
-                    )
-                },
-                onFailure = {
-                    state.copy(
-                        pendingDeleteTicket = null,
-                        errorMessage = "티켓을 삭제하지 못했어요. 다시 시도해 주세요.",
-                        toastMessage = null
-                    )
-                }
-            )
+            result.fold(onSuccess = {
+                state.copy(
+                    myTickets = state.myTickets.filterNot { it.id == ticket.id },
+                    savedTickets = state.savedTickets.filterNot { it.id == ticket.id },
+                    pendingDeleteTicket = null,
+                    errorMessage = null,
+                    toastMessage = null
+                )
+            }, onFailure = {
+                state.copy(
+                    pendingDeleteTicket = null,
+                    errorMessage = "티켓을 삭제하지 못했어요. 다시 시도해 주세요.",
+                    toastMessage = null
+                )
+            })
         }
     }
 
@@ -160,39 +127,32 @@ class CollectionViewModel @Inject constructor(
             ticket.ownedByMe
         )
         val result = appRepository.fetchTicketDetail(
-            ticketId = ticket.id,
-            ownedByMe = ticket.ownedByMe
+            ticketId = ticket.id, ownedByMe = ticket.ownedByMe
         )
-        result
-            .onSuccess { detail ->
-                Timber.d(
-                    "CollectionViewModel.loadTicketDetail success ticketId=%s liked=%s likeCount=%d",
-                    detail.id,
-                    detail.liked,
-                    detail.likeCount
-                )
-            }
-            .onFailure {
-                Timber.w(it, "CollectionViewModel.loadTicketDetail failed ticketId=%s", ticket.id)
-            }
+        result.onSuccess { detail ->
+            Timber.d(
+                "CollectionViewModel.loadTicketDetail success ticketId=%s liked=%s likeCount=%d",
+                detail.id,
+                detail.liked,
+                detail.likeCount
+            )
+        }.onFailure {
+            Timber.w(it, "CollectionViewModel.loadTicketDetail failed ticketId=%s", ticket.id)
+        }
 
         _uiState.update { state ->
-            result.fold(
-                onSuccess = { detail ->
-                    state.copy(
-                        myTickets = state.myTickets.replaceTicket(ticket.id, detail),
-                        savedTickets = state.savedTickets.replaceTicket(ticket.id, detail),
-                        errorMessage = null,
-                        toastMessage = null
-                    )
-                },
-                onFailure = {
-                    state.copy(
-                        errorMessage = "티켓 상세 정보를 불러오지 못했어요. 다시 시도해 주세요.",
-                        toastMessage = null
-                    )
-                }
-            )
+            result.fold(onSuccess = { detail ->
+                state.copy(
+                    myTickets = state.myTickets.replaceTicket(ticket.id, detail),
+                    savedTickets = state.savedTickets.replaceTicket(ticket.id, detail),
+                    errorMessage = null,
+                    toastMessage = null
+                )
+            }, onFailure = {
+                state.copy(
+                    errorMessage = "티켓 상세 정보를 불러오지 못했어요. 다시 시도해 주세요.", toastMessage = null
+                )
+            })
         }
     }
 
@@ -204,7 +164,9 @@ class CollectionViewModel @Inject constructor(
         }
 
         val nextLiked = !ticket.liked
-        Timber.d("CollectionViewModel.toggleTicketLike request ticketId=%s liked=%s", ticketId, nextLiked)
+        Timber.d(
+            "CollectionViewModel.toggleTicketLike request ticketId=%s liked=%s", ticketId, nextLiked
+        )
         _uiState.update { state ->
             state.copy(
                 myTickets = state.myTickets.updateLike(ticketId, nextLiked),
@@ -215,13 +177,20 @@ class CollectionViewModel @Inject constructor(
         }
 
         val result = appRepository.setTicketLiked(ticketId = ticketId, liked = nextLiked)
-        result
-            .onSuccess {
-                Timber.d("CollectionViewModel.toggleTicketLike success ticketId=%s liked=%s", ticketId, nextLiked)
-            }
-            .onFailure {
-                Timber.w(it, "CollectionViewModel.toggleTicketLike failed ticketId=%s liked=%s", ticketId, nextLiked)
-            }
+        result.onSuccess {
+            Timber.d(
+                "CollectionViewModel.toggleTicketLike success ticketId=%s liked=%s",
+                ticketId,
+                nextLiked
+            )
+        }.onFailure {
+            Timber.w(
+                it,
+                "CollectionViewModel.toggleTicketLike failed ticketId=%s liked=%s",
+                ticketId,
+                nextLiked
+            )
+        }
 
         result.exceptionOrNull()?.let { error ->
             val message = error.toTicketLikeErrorMessage()
@@ -230,8 +199,7 @@ class CollectionViewModel @Inject constructor(
                     myTickets = state.myTickets.restoreTicket(ticket),
                     savedTickets = state.savedTickets.restoreTicket(ticket),
                     errorMessage = message.takeUnless { it == OwnPostLikeNotAllowedMessage },
-                    toastMessage = message.takeIf { it == OwnPostLikeNotAllowedMessage }
-                )
+                    toastMessage = message.takeIf { it == OwnPostLikeNotAllowedMessage })
             }
         }
     }
@@ -245,7 +213,9 @@ class CollectionViewModel @Inject constructor(
         _uiState.update { state ->
             val ticket = state.myTickets.firstOrNull { it.id == ticketId }
             if (ticket == null) {
-                Timber.d("CollectionViewModel.startEditingTicket ticket not found ticketId=%s", ticketId)
+                Timber.d(
+                    "CollectionViewModel.startEditingTicket ticket not found ticketId=%s", ticketId
+                )
             }
             state.copy(
                 editingTicket = ticket?.toEditingTicket(),
@@ -291,12 +261,18 @@ class CollectionViewModel @Inject constructor(
     }
 
     fun updateEditingRating(rating: Int) {
-        Timber.d("CollectionViewModel.updateEditingRating input=%d coerced=%d", rating, rating.coerceIn(MIN_RATING, MAX_RATING))
+        Timber.d(
+            "CollectionViewModel.updateEditingRating input=%d coerced=%d",
+            rating,
+            rating.coerceIn(MIN_RATING, MAX_RATING)
+        )
         _uiState.update { state ->
             state.copy(
-                editingTicket = state.editingTicket?.copy(rating = rating.coerceIn(MIN_RATING, MAX_RATING)),
-                errorMessage = null,
-                toastMessage = null
+                editingTicket = state.editingTicket?.copy(
+                    rating = rating.coerceIn(
+                        MIN_RATING, MAX_RATING
+                    )
+                ), errorMessage = null, toastMessage = null
             )
         }
     }
@@ -315,9 +291,7 @@ class CollectionViewModel @Inject constructor(
     suspend fun saveEditedTicket() {
         val editingTicket = _uiState.value.editingTicket ?: return
         Timber.d("CollectionViewModel.saveEditedTicket request ticketId=%s", editingTicket.id)
-        if (editingTicket.watchedDate.isBlank() ||
-            editingTicket.review.isBlank()
-        ) {
+        if (editingTicket.watchedDate.isBlank() || editingTicket.review.isBlank()) {
             Timber.d(
                 "CollectionViewModel.saveEditedTicket blocked watchedDateBlank=%s reviewBlank=%s",
                 editingTicket.watchedDate.isBlank(),
@@ -325,8 +299,7 @@ class CollectionViewModel @Inject constructor(
             )
             _uiState.update {
                 it.copy(
-                    errorMessage = "관람일, 관람 후기를 입력해 주세요.",
-                    toastMessage = null
+                    errorMessage = "관람일, 관람 후기를 입력해 주세요.", toastMessage = null
                 )
             }
             return
@@ -341,33 +314,28 @@ class CollectionViewModel @Inject constructor(
                 review = editingTicket.review
             )
         )
-        result
-            .onSuccess { updatedTicket ->
-                Timber.d("CollectionViewModel.saveEditedTicket success ticketId=%s", updatedTicket.id)
-            }
-            .onFailure {
-                Timber.w(it, "CollectionViewModel.saveEditedTicket failed ticketId=%s", editingTicket.id)
-            }
+        result.onSuccess { updatedTicket ->
+            Timber.d(
+                "CollectionViewModel.saveEditedTicket success ticketId=%s", updatedTicket.id
+            )
+        }.onFailure {
+            Timber.w(
+                it, "CollectionViewModel.saveEditedTicket failed ticketId=%s", editingTicket.id
+            )
+        }
 
         _uiState.update { state ->
-            result.fold(
-                onSuccess = { updatedTicket ->
-                    state.copy(
-                        myTickets = state.myTickets.map {
-                            if (it.id == updatedTicket.id) updatedTicket else it
-                        },
-                        editingTicket = null,
-                        errorMessage = null,
-                        toastMessage = null
-                    )
-                },
-                onFailure = {
-                    state.copy(
-                        errorMessage = "티켓을 저장하지 못했어요. 다시 시도해 주세요.",
-                        toastMessage = null
-                    )
-                }
-            )
+            result.fold(onSuccess = { updatedTicket ->
+                state.copy(
+                    myTickets = state.myTickets.map {
+                        if (it.id == updatedTicket.id) updatedTicket else it
+                    }, editingTicket = null, errorMessage = null, toastMessage = null
+                )
+            }, onFailure = {
+                state.copy(
+                    errorMessage = "티켓을 저장하지 못했어요. 다시 시도해 주세요.", toastMessage = null
+                )
+            })
         }
     }
 
@@ -388,12 +356,6 @@ data class CollectionUiState(
     val errorMessage: String? = null,
     val toastMessage: String? = null
 ) {
-    val visibleTickets: List<MovieTicket>
-        get() = when (selectedTab) {
-            CollectionTicketTab.MyTickets -> myTickets
-            CollectionTicketTab.SavedTickets -> savedTickets
-        }
-
     fun findTicket(ticketId: String): MovieTicket? {
         return myTickets.firstOrNull { it.id == ticketId }
             ?: savedTickets.firstOrNull { it.id == ticketId }
@@ -403,8 +365,7 @@ data class CollectionUiState(
 enum class CollectionTicketTab(
     val label: String
 ) {
-    MyTickets("내 티켓"),
-    SavedTickets("저장한 티켓")
+    MyTickets("내 티켓"), SavedTickets("저장한 티켓")
 }
 
 data class EditingTicket(
@@ -439,7 +400,9 @@ private fun List<MovieTicket>.restoreTicket(ticket: MovieTicket): List<MovieTick
     }
 }
 
-private fun List<MovieTicket>.replaceTicket(ticketId: String, updatedTicket: MovieTicket): List<MovieTicket> {
+private fun List<MovieTicket>.replaceTicket(
+    ticketId: String, updatedTicket: MovieTicket
+): List<MovieTicket> {
     return map { current ->
         if (current.id == ticketId) updatedTicket else current
     }
@@ -452,7 +415,6 @@ private fun MovieTicket.withLikeState(liked: Boolean): MovieTicket {
         else -> -1
     }
     return copy(
-        liked = liked,
-        likeCount = (likeCount + delta).coerceAtLeast(0)
+        liked = liked, likeCount = (likeCount + delta).coerceAtLeast(0)
     )
 }

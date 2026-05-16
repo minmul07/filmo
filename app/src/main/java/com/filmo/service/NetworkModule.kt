@@ -1,15 +1,14 @@
 package com.filmo.service
 
+import com.filmo.BuildConfig
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import com.filmo.BuildConfig
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
-import timber.log.Timber
 import javax.inject.Singleton
 
 @Module

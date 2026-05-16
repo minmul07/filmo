@@ -1,6 +1,5 @@
 package com.filmo.ui.collection
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -8,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,27 +14,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline
@@ -59,114 +48,6 @@ import com.filmo.ui.movie.toMovieImageUrl
 import java.time.LocalDate
 
 @Composable
-internal fun TicketCard(
-    ticket: MovieTicket,
-    showOwnerActions: Boolean,
-    onClick: () -> Unit,
-    onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
-            .semantics { role = Role.Button },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .padding(horizontal = 24.dp, vertical = 28.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "MOVIE TICKET",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = ticket.movieTitle,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = ticket.theaterName,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = ticket.watchedDate,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Column(
-                modifier = Modifier.padding(horizontal = 22.dp, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp)
-            ) {
-                RatingStars(
-                    rating = ticket.rating,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
-                Text(
-                    text = ticket.review,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                if (showOwnerActions) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = onEditClick,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Filled.Edit, contentDescription = null)
-                            Spacer(modifier = Modifier.size(8.dp))
-                            Text("수정")
-                        }
-                        Button(
-                            onClick = onDeleteClick,
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                contentColor = MaterialTheme.colorScheme.surface
-                            )
-                        ) {
-                            Icon(Icons.Filled.Delete, contentDescription = null)
-                            Spacer(modifier = Modifier.size(8.dp))
-                            Text("삭제")
-                        }
-                    }
-                } else {
-                    Button(
-                        onClick = onDeleteClick,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            contentColor = MaterialTheme.colorScheme.surface
-                        )
-                    ) {
-                        Icon(Icons.Filled.Bookmark, contentDescription = null)
-                        Spacer(modifier = Modifier.size(8.dp))
-                        Text("저장 취소")
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 internal fun CollectionDetailTicketCard(
     ticket: MovieTicket,
     onLikeClick: () -> Unit,
@@ -178,9 +59,10 @@ internal fun CollectionDetailTicketCard(
     val watchedDateText = remember(ticket.watchedDate) {
         ticket.watchedDate.toCollectionDetailWatchedDateText()
     }
-    val movieMetadataText = remember(ticket.genre, ticket.director, ticket.releaseYear, ticket.duration) {
-        ticket.toCollectionDetailMovieMetadataText()
-    }
+    val movieMetadataText =
+        remember(ticket.genre, ticket.director, ticket.releaseYear, ticket.duration) {
+            ticket.toCollectionDetailMovieMetadataText()
+        }
     val ticketShape = remember {
         CollectionTicketShape(
             cornerCutout = 10.dp,
@@ -194,7 +76,8 @@ internal fun CollectionDetailTicketCard(
             .fillMaxWidth()
             .aspectRatio(CollectionDetailTicketAspectRatio)
             .semantics(mergeDescendants = true) {
-                contentDescription = "${ticket.movieTitle} 티켓 상세, 별점 ${ticket.rating}/5점, 관람일 $watchedDateText"
+                contentDescription =
+                    "${ticket.movieTitle} 티켓 상세, 별점 ${ticket.rating}/5점, 관람일 $watchedDateText"
             },
         shape = ticketShape,
         color = MaterialTheme.colorScheme.surface,
@@ -292,7 +175,8 @@ internal fun CollectionTicketCard(
             .clickable(onClick = onClick)
             .semantics(mergeDescendants = true) {
                 role = Role.Button
-                contentDescription = "${ticket.movieTitle} 티켓, 별점 ${ticket.rating}/5점, 관람일 $watchedDateText"
+                contentDescription =
+                    "${ticket.movieTitle} 티켓, 별점 ${ticket.rating}/5점, 관람일 $watchedDateText"
             },
         shape = ticketShape,
         color = MaterialTheme.colorScheme.surface,
@@ -679,6 +563,5 @@ internal fun MovieTicket.toCollectionDetailMovieMetadataText(): String {
 private val KoreanDayOfWeekLabels = listOf("월", "화", "수", "목", "금", "토", "일")
 
 private const val CollectionTicketAspectRatio = 160f / 210f
-private const val CollectionTicketOverlayFraction = 150f / 210f
 private const val CollectionDetailTicketAspectRatio = 328f / 604f
 private const val CollectionDetailTicketPerforationFraction = 402f / 604f

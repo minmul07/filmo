@@ -40,11 +40,6 @@ interface ApiService {
         @Path("seq") seq: Long
     ): ResponseBody
 
-    @GET("api/movies/image/{imagePath}")
-    suspend fun fetchMovieImage(
-        @Path("imagePath", encoded = true) imagePath: String
-    ): ResponseBody
-
     @GET("api/tickets")
     suspend fun fetchTickets(): ResponseBody
 

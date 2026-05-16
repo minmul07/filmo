@@ -89,50 +89,6 @@ data class InitialSetupUiState(
         )
     }
 
-    fun toAutomaticNicknameLoading(): InitialSetupUiState {
-        // Signup nickname generation is intentionally unused in the login-only MVP.
-        return copy(
-            step = InitialSetupStep.Login,
-            isAutomaticNickname = false,
-            isNicknameLoading = false,
-            hasNicknameLoadError = false,
-            hasSaveError = false
-        )
-    }
-
-    fun toAutomaticNicknameLoaded(nickname: String): InitialSetupUiState {
-        // Signup nickname generation is intentionally unused in the login-only MVP.
-        return copy(
-            step = InitialSetupStep.Login,
-            isAutomaticNickname = false,
-            isNicknameLoading = false,
-            hasNicknameLoadError = false,
-            hasSaveError = false
-        )
-    }
-
-    fun toNicknameLoadFailure(): InitialSetupUiState {
-        // Signup nickname generation is intentionally unused in the login-only MVP.
-        return copy(
-            step = InitialSetupStep.Login,
-            isAutomaticNickname = false,
-            isNicknameLoading = false,
-            hasNicknameLoadError = false
-        )
-    }
-
-    fun toManualNickname(): InitialSetupUiState {
-        // Manual signup is intentionally unused in the login-only MVP.
-        return copy(
-            nickname = "",
-            step = InitialSetupStep.Login,
-            isAutomaticNickname = false,
-            isNicknameLoading = false,
-            hasNicknameLoadError = false,
-            hasSaveError = false
-        )
-    }
-
     fun toLogin(): InitialSetupUiState {
         return copy(
             nickname = "",
