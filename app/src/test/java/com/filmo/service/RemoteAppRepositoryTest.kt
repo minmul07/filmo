@@ -396,6 +396,66 @@ class RemoteAppRepositoryTest {
         assertEquals("T001", apiService.removedSavedTheaterId)
     }
 
+    @Test
+    fun fetchTicketCollectionReturnsMyTicketsWhenSavedTicketEndpointIsMissing() = runBlocking {
+        val repository = RemoteAppRepository(
+            FakeApiService(
+                ticketsResponse = """
+                    {
+                      "code": 200,
+                      "message": "OK",
+                      "data": [
+                        {
+                          "id": 101,
+                          "movieSeq": 1001,
+                          "watchedDate": "2026-05-16",
+                          "watchedTime": "19:30",
+                          "cinema": "인디스페이스",
+                          "review": "작고 단단한 영화였어요",
+                          "showYn": true,
+                          "createdAt": "2026-05-16T13:51:52.335Z",
+                          "updatedAt": "2026-05-16T13:51:52.335Z"
+                        }
+                      ]
+                    }
+                """.trimIndent(),
+                movieDetailResponse = """
+                    {
+                      "code": 200,
+                      "message": "OK",
+                      "data": {
+                        "seq": 1001,
+                        "korTitle": "테스트 영화",
+                        "engTitle": "Test Film",
+                        "director": "테스트 감독",
+                        "productionYear": "2024",
+                        "genreName": "드라마"
+                      }
+                    }
+                """.trimIndent()
+            )
+        )
+
+        val result = repository.fetchTicketCollection()
+
+        assertTrue(result.isSuccess)
+        val collection = result.getOrThrow()
+        assertEquals(
+            MovieTicket(
+                id = "101",
+                movieTitle = "테스트 영화",
+                theaterName = "인디스페이스",
+                watchedDate = "2026-05-16",
+                rating = 0,
+                review = "작고 단단한 영화였어요",
+                ownedByMe = true,
+                savedByMe = false
+            ),
+            collection.myTickets.single()
+        )
+        assertTrue(collection.savedTickets.isEmpty())
+    }
+
     private class FakeApiService(
         private val signupResponse: String = """{"data":{"accessToken":"signup-token"}}""",
         private val loginResponse: String = """{"data":{"accessToken":"login-token"}}""",
@@ -404,7 +464,8 @@ class RemoteAppRepositoryTest {
         private val moviesResponse: String = """{"data":{"content":[]}}""",
         private val movieDetailResponse: String = """{"data":{}}""",
         private val theatersResponse: String = """{"data":{"content":[]}}""",
-        private val theaterResponse: String = """{"data":{}}"""
+        private val theaterResponse: String = """{"data":{}}""",
+        private val ticketsResponse: String = """{"data":[]}"""
     ) : ApiService {
         var signupBody: String? = null
             private set
@@ -499,6 +560,9 @@ class RemoteAppRepositoryTest {
             removedSavedTheaterId = theaCd
             return """{"data":"ok"}""".toResponseBody()
         }
+
+        override suspend fun fetchTickets(): ResponseBody =
+            ticketsResponse.toResponseBody()
     }
 
     private class CapturingTimberTree : Timber.Tree() {

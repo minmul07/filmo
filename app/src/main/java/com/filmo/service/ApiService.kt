@@ -91,4 +91,7 @@ interface ApiService {
     suspend fun removeSavedTheater(
         @Path("theaCd") theaCd: String
     ): ResponseBody
+
+    @GET("api/tickets")
+    suspend fun fetchTickets(): ResponseBody
 }

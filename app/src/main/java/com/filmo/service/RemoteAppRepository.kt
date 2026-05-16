@@ -284,7 +284,22 @@ class RemoteAppRepository @Inject constructor(
 
     override suspend fun fetchTicketCollection(): Result<TicketCollection> = runCatching {
         Timber.d("RemoteAppRepository.fetchTicketCollection request")
-        error("Ticket collection API is not specified in Swagger.")
+        val myTickets = JsonParser.parseToJsonElement(apiService.fetchTickets().string())
+            .jsonObject
+            .dataArray()
+            .map { it.jsonObject.toMovieTicket(ownedByMe = true) }
+        // Swagger exposes my tickets, but no saved-ticket collection endpoint.
+        // Keep the collection screen usable until that API is added.
+        TicketCollection(
+            myTickets = myTickets,
+            savedTickets = emptyList()
+        )
+    }.onSuccess { collection ->
+        Timber.d(
+            "RemoteAppRepository.fetchTicketCollection success myCount=%d savedCount=%d",
+            collection.myTickets.size,
+            collection.savedTickets.size
+        )
     }.onFailure {
         Timber.w(it, "RemoteAppRepository.fetchTicketCollection failed")
     }
@@ -378,8 +393,43 @@ class RemoteAppRepository @Inject constructor(
         )
     }
 
+    private suspend fun JsonObject.toMovieTicket(ownedByMe: Boolean): MovieTicket {
+        val movieSeq = string("movieSeq")
+        return MovieTicket(
+            id = string("id"),
+            movieTitle = string("movieTitle")
+                .ifBlank { string("korTitle") }
+                .ifBlank { fetchMovieTitle(movieSeq) },
+            theaterName = string("cinema"),
+            watchedDate = string("watchedDate"),
+            rating = int("rating").coerceIn(MIN_TICKET_RATING, MAX_TICKET_RATING),
+            review = string("review"),
+            ownedByMe = ownedByMe,
+            savedByMe = booleanOrNull("savedByMe") == true
+        )
+    }
+
+    private suspend fun fetchMovieTitle(movieSeq: String): String {
+        val seq = movieSeq.toLongOrNull() ?: return "제목 없음"
+        return runCatching {
+            JsonParser.parseToJsonElement(apiService.fetchMovie(seq).string())
+                .jsonObject
+                .dataObject()
+                .toMovieDetail()
+                .title
+                .ifBlank { "영화 #$movieSeq" }
+        }.getOrElse {
+            Timber.w(it, "RemoteAppRepository.fetchMovieTitle failed movieSeq=%s", movieSeq)
+            "영화 #$movieSeq"
+        }
+    }
+
     private fun JsonObject.dataObject(): JsonObject {
         return this["data"]?.jsonObject ?: error("Missing data")
+    }
+
+    private fun JsonObject.dataArray(): JsonArray {
+        return this["data"]?.jsonArray ?: JsonArray(emptyList())
     }
 
     private fun JsonObject.array(name: String): JsonArray {
@@ -415,6 +465,8 @@ class RemoteAppRepository @Inject constructor(
     }
 
     private companion object {
+        const val MIN_TICKET_RATING = 0
+        const val MAX_TICKET_RATING = 5
         val JsonContentType = "application/json; charset=utf-8".toMediaType()
         val JsonParser = Json { ignoreUnknownKeys = true }
 
