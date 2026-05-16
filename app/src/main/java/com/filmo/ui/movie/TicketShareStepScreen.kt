@@ -182,6 +182,7 @@ private fun TicketDetailArea(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         Row(
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(28.dp)
         ) {
             TicketInfoBlock(
@@ -195,12 +196,12 @@ private fun TicketDetailArea(
                         tint = RatingSelectedColor
                     )
                 },
-                modifier = Modifier.width(56.dp)
+                modifier = Modifier.width(64.dp)
             )
             TicketInfoBlock(
                 label = "관람일",
                 value = watchedDate,
-                modifier = Modifier.width(131.dp)
+                modifier = Modifier.weight(1f)
             )
         }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -229,7 +230,7 @@ private fun TicketInfoBlock(
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(
             text = label,
@@ -237,13 +238,13 @@ private fun TicketInfoBlock(
             color = MaterialTheme.colorScheme.onSurface
         )
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             leadingIcon?.invoke()
             Text(
                 text = value,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

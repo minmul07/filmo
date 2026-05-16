@@ -139,6 +139,7 @@ private fun RegisterMovieContent(
 @Composable
 internal fun TicketShareScreen(
     uiState: RegisterMovieUiState,
+    onBack: () -> Unit,
     onClose: () -> Unit
 ) {
     Column(
@@ -149,7 +150,7 @@ internal fun TicketShareScreen(
     ) {
         RegisterMovieHeader(
             step = RegisterMovieStep.Share,
-            onBack = {},
+            onBack = onBack,
             onClose = onClose
         )
 

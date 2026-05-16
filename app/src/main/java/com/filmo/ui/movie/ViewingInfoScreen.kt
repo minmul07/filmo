@@ -46,7 +46,9 @@ internal fun ViewingInfoRoute(
     }
 
     BackHandler {
-        if (uiState.step != RegisterMovieStep.Share) {
+        if (uiState.step == RegisterMovieStep.Share) {
+            onNavigateToCollection()
+        } else {
             handleBack()
         }
     }
@@ -88,6 +90,7 @@ internal fun ViewingInfoRoute(
 
             RegisterMovieStep.Share -> TicketShareScreen(
                 uiState = uiState,
+                onBack = onNavigateToCollection,
                 onClose = onNavigateToCollection
             )
         }

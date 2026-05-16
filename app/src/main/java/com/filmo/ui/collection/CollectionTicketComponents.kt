@@ -283,8 +283,7 @@ internal fun CollectionTicketCard(
     val ticketShape = remember {
         CollectionTicketShape(
             cornerCutout = 10.dp,
-            sideNotchRadius = 10.dp,
-            perforationFraction = CollectionTicketOverlayFraction
+            includeSideNotches = false
         )
     }
 
@@ -366,10 +365,6 @@ internal fun CollectionTicketCard(
                     )
                 }
             }
-            CollectionTicketPerforationLine(
-                modifier = Modifier.fillMaxSize(),
-                fraction = CollectionTicketOverlayFraction
-            )
         }
     }
 }
@@ -555,28 +550,11 @@ internal fun RatingEditor(
     }
 }
 
-@Composable
-private fun CollectionTicketPerforationLine(
-    fraction: Float,
-    modifier: Modifier = Modifier
-) {
-    val lineColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.28f)
-    Canvas(modifier = modifier) {
-        val y = size.height * fraction
-        drawLine(
-            color = lineColor,
-            start = androidx.compose.ui.geometry.Offset(18.dp.toPx(), y),
-            end = androidx.compose.ui.geometry.Offset(size.width - 18.dp.toPx(), y),
-            strokeWidth = 1.dp.toPx(),
-            pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 7.dp.toPx()))
-        )
-    }
-}
-
 private class CollectionTicketShape(
     private val cornerCutout: Dp,
-    private val sideNotchRadius: Dp,
-    private val perforationFraction: Float
+    private val sideNotchRadius: Dp = 0.dp,
+    private val perforationFraction: Float = 0f,
+    private val includeSideNotches: Boolean = true
 ) : Shape {
     override fun createOutline(
         size: Size,
@@ -584,11 +562,19 @@ private class CollectionTicketShape(
         density: Density
     ): Outline {
         val corner = with(density) { cornerCutout.toPx() }.coerceAtMost(size.minDimension / 6f)
-        val notch = with(density) { sideNotchRadius.toPx() }.coerceAtMost(size.minDimension / 6f)
-        val perforationY = (size.height * perforationFraction).coerceIn(
-            corner + notch,
-            size.height - corner - notch
-        )
+        val notch = if (includeSideNotches) {
+            with(density) { sideNotchRadius.toPx() }.coerceAtMost(size.minDimension / 6f)
+        } else {
+            0f
+        }
+        val perforationY = if (includeSideNotches) {
+            (size.height * perforationFraction).coerceIn(
+                corner + notch,
+                size.height - corner - notch
+            )
+        } else {
+            0f
+        }
         val path = Path().apply {
             moveTo(corner, 0f)
             lineTo(size.width - corner, 0f)
@@ -603,18 +589,20 @@ private class CollectionTicketShape(
                 sweepAngleDegrees = -90f,
                 forceMoveTo = false
             )
-            lineTo(size.width, perforationY - notch)
-            arcTo(
-                rect = Rect(
-                    left = size.width - notch,
-                    top = perforationY - notch,
-                    right = size.width + notch,
-                    bottom = perforationY + notch
-                ),
-                startAngleDegrees = -90f,
-                sweepAngleDegrees = -180f,
-                forceMoveTo = false
-            )
+            if (includeSideNotches) {
+                lineTo(size.width, perforationY - notch)
+                arcTo(
+                    rect = Rect(
+                        left = size.width - notch,
+                        top = perforationY - notch,
+                        right = size.width + notch,
+                        bottom = perforationY + notch
+                    ),
+                    startAngleDegrees = -90f,
+                    sweepAngleDegrees = -180f,
+                    forceMoveTo = false
+                )
+            }
             lineTo(size.width, size.height - corner)
             arcTo(
                 rect = Rect(
@@ -639,18 +627,20 @@ private class CollectionTicketShape(
                 sweepAngleDegrees = -90f,
                 forceMoveTo = false
             )
-            lineTo(0f, perforationY + notch)
-            arcTo(
-                rect = Rect(
-                    left = -notch,
-                    top = perforationY - notch,
-                    right = notch,
-                    bottom = perforationY + notch
-                ),
-                startAngleDegrees = 90f,
-                sweepAngleDegrees = -180f,
-                forceMoveTo = false
-            )
+            if (includeSideNotches) {
+                lineTo(0f, perforationY + notch)
+                arcTo(
+                    rect = Rect(
+                        left = -notch,
+                        top = perforationY - notch,
+                        right = notch,
+                        bottom = perforationY + notch
+                    ),
+                    startAngleDegrees = 90f,
+                    sweepAngleDegrees = -180f,
+                    forceMoveTo = false
+                )
+            }
             lineTo(0f, corner)
             arcTo(
                 rect = Rect(
