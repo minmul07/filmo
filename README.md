@@ -1,8 +1,8 @@
 # Filmo
 
-## 10th NE(O)RDINARY HACKATHON R조
+## 10th NE(O)RDINARY HACKATHON 우수상
 
-독립영화를 보고 남긴 감상 기록을 영화 티켓 형태로 수집하고, 다른 사람의 취향까지 둘러볼 수 있는 Android 앱입니다.
+독립영화의 모든 순간을 기록하는 서비스, Filmo의 Android 클라이언트입니다.
 
 해커톤 MVP 기준으로는 로그인, 영화 검색, 관람 정보 입력, 티켓 발행, 내 컬렉션, 공개 티켓 피드가 중심 기능입니다.
 
@@ -18,7 +18,7 @@
 
 ## 핵심 기능
 
-| 기능 | 현재 구현 상태 |
+| 기능 | 설명 |
 | --- | --- |
 | 로그인 | 아이디/비밀번호 로그인, access token DataStore 저장 |
 | 영화 검색 | 서버 영화 목록 조회, 검색어 debounce, 페이지네이션 |
@@ -27,7 +27,6 @@
 | 티켓 발행 | 관람 기록을 티켓 UI로 미리 보고 서버에 생성, 생성 후 공개 상태로 전환 |
 | 컬렉션 | 내 티켓 목록을 포스터 기반 티켓 카드 그리드로 표시 |
 | 티켓 상세 | 선택한 티켓의 포스터, 영화 메타데이터, 별점, 관람일, 후기를 티켓 형태로 표시 |
-| 티켓 수정 | 수정 화면과 저장 로직이 존재함. 현재 컬렉션에서 수정 화면으로 들어가는 UX는 정리 필요 |
 | 공개 티켓 피드 | 다른 사용자가 공개한 티켓 목록 조회 |
 | 좋아요 | 공개 티켓과 티켓 상세에서 좋아요 토글, 본인 티켓 좋아요 제한 메시지 처리 |
 
@@ -35,10 +34,7 @@
 
 ```mermaid
 flowchart TD
-    A["Splash"] --> B{"초기 설정 완료?"}
-    B -->|아니오| C["로그인"]
-    B -->|예| D["Main"]
-    C -->|로그인 성공| D
+    A["Splash"] -->|로그인 성공| D["Main"]
 
     D --> E["컬렉션"]
     D --> F["기록하기"]
@@ -50,100 +46,32 @@ flowchart TD
     J --> E
 
     E --> K["티켓 상세"]
-    E --> L["티켓 수정"]
-    K --> L
-    L --> E
 ```
 
 ## 주요 화면
 
-### Splash / 로그인
-
-- 앱 시작 시 `DataStore`에 저장된 초기 설정 완료 여부를 확인합니다.
-- 로그인 화면에서는 아이디와 비밀번호를 입력합니다.
-- 각 입력값은 4자 이상이어야 로그인 버튼이 활성화됩니다.
-- 로그인 성공 시 access token을 저장하고 메인 화면으로 이동합니다.
-
-관련 파일:
-- `app/src/main/java/com/filmo/ui/main/MainActivity.kt`
-- `app/src/main/java/com/filmo/ui/setup/SplashScreen.kt`
-- `app/src/main/java/com/filmo/ui/setup/InitialSetupScreen.kt`
-- `app/src/main/java/com/filmo/ui/setup/AuthFormScreen.kt`
-
-### 컬렉션
-
-- 앱의 기본 시작 탭입니다.
-- 내가 만든 티켓을 2열 그리드로 보여줍니다.
-- 각 티켓은 포스터 이미지, 제목, 별점, 관람일을 포함합니다.
-- 로딩, 빈 상태, 에러 상태, retry action이 구현되어 있습니다.
-
-관련 파일:
-- `app/src/main/java/com/filmo/ui/collection/CollectionScreen.kt`
-- `app/src/main/java/com/filmo/ui/collection/CollectionViewModel.kt`
-- `app/src/main/java/com/filmo/ui/collection/CollectionTicketComponents.kt`
-
-### 기록하기
-
-- 영화 목록을 서버에서 가져오고, 제목/감독명 기반 검색을 지원합니다.
-- 검색 입력은 250ms debounce 후 서버에 요청합니다.
-- 목록은 3열 포스터 그리드로 보여주며, 하단 접근 시 다음 페이지를 불러옵니다.
-- 영화를 선택하면 관람 정보 입력 화면으로 이동합니다.
-
-관련 파일:
-- `app/src/main/java/com/filmo/ui/movie/RegisterMovieScreen.kt`
-- `app/src/main/java/com/filmo/ui/movie/MovieSearchStepScreen.kt`
-- `app/src/main/java/com/filmo/ui/movie/RegisterMovieViewModel.kt`
-
-### 관람 정보 입력
-
-- 선택한 영화의 포스터와 메타데이터를 보여줍니다.
-- 관람일은 wheel date picker bottom sheet로 선택합니다.
-- 별점은 1~5점, 관람 후기는 최대 100자까지 입력합니다.
-- 필수값이 비어 있으면 사용자에게 복구 가능한 에러 메시지를 보여줍니다.
-
-관련 파일:
-- `app/src/main/java/com/filmo/ui/movie/ViewingInfoScreen.kt`
-- `app/src/main/java/com/filmo/ui/movie/MovieInfoStepScreen.kt`
-- `app/src/main/java/com/filmo/ui/movie/WheelDatePickerSheet.kt`
-
-### 티켓 발행
-
-- 입력한 관람 기록을 실제 티켓처럼 보이는 UI로 미리 보여줍니다.
-- 티켓은 포스터 영역, 점선 절취선, 별점/관람일/후기 영역으로 구성됩니다.
-- 티켓 발행 단계 진입 시 서버에 티켓을 생성하고 공개 상태로 갱신합니다.
-
-관련 파일:
-- `app/src/main/java/com/filmo/ui/movie/TicketShareStepScreen.kt`
-- `app/src/main/java/com/filmo/ui/movie/ViewingInfoScreen.kt`
-
-### 티켓보기
-
-- 공개된 티켓을 세로 리스트로 보여주는 공유 피드입니다.
-- 각 티켓은 포스터, 영화 메타데이터, 별점, 관람일, 후기, 좋아요 버튼을 포함합니다.
-- 로딩, 빈 상태, 에러 상태, retry action이 구현되어 있습니다.
-
-관련 파일:
-- `app/src/main/java/com/filmo/ui/ticket/TicketViewScreen.kt`
-- `app/src/main/java/com/filmo/ui/ticket/TicketViewModel.kt`
+| 항목 | 내용 |
+| --- | --- |
+|<img width="240" src="https://github.com/user-attachments/assets/318a0fad-29a2-454c-aa04-9ee015ef027a" /> | <img width="240" src="https://github.com/user-attachments/assets/f316b4f3-9ec0-42a4-a83f-21c9c05423b5" /> |
+| 컬렉션 | 티켓 보기 |
+| <img width="240" src="https://github.com/user-attachments/assets/dbaa374e-9187-4bb9-a362-ca741a9a5e73" /> | <img width="240" src="https://github.com/user-attachments/assets/503563dc-2550-4d3c-a251-1d73ebc1e54e" /> |
+| 기록하기 - 영화 검색 | 기록하기 - 관람 정보 입력 |
+| <img width="240" src="https://github.com/user-attachments/assets/c61a6ade-e1f6-4f20-9ec1-b293117d6ad6" /> | |
+| 티켓 발행 | |
 
 ## 기술 스택
 
-| 영역 | 사용 기술 |
-| --- | --- |
-| Language | Kotlin |
-| UI | Jetpack Compose, Material 3 |
-| Architecture | MVVM, 단방향 데이터 흐름 |
-| State | StateFlow, collectAsStateWithLifecycle |
-| Async | Kotlin Coroutines |
-| Navigation | AndroidX Navigation 3 `NavDisplay`, `NavKey` |
-| DI | Hilt |
-| Network | Retrofit, OkHttp |
-| JSON | Kotlinx Serialization JSON |
-| Persistence | DataStore Preferences |
-| Image | Coil 3, memory/disk cache |
-| Logging | Timber |
-| Test | JUnit4, Compose UI test dependency |
-| Build | Gradle Kotlin DSL, Android Gradle Plugin |
+- Kotlin
+- Jetpack Compose
+- MVVM
+- Coroutines
+- Navigation 3
+- Hilt
+- Retrofit
+- OkHttp
+- DataStore
+- Coil 3
+- Timber
 
 ## 아키텍처
 
@@ -211,7 +139,6 @@ buildConfigField("Boolean", "USE_MOCK_REPOSITORY", "false")
 | health check | `GET /health` |
 | 회원가입 | `POST /api/auth/signup` |
 | 로그인 | `POST /api/auth/login` |
-| 랜덤 닉네임 | `GET /api/auth/nickname/random` |
 | 영화 목록 | `GET /api/movies` |
 | 영화 상세 | `GET /api/movies/{seq}` |
 | 영화 포스터 | `GET /api/movies/image/{imagePath}` |
@@ -223,3 +150,12 @@ buildConfigField("Boolean", "USE_MOCK_REPOSITORY", "false")
 | 좋아요 추가/삭제 | `POST /api/likes/{ticketId}`, `DELETE /api/likes/{ticketId}` |
 | 티켓 수정/삭제 | `PATCH /api/tickets/{ticketId}`, `DELETE /api/tickets/{ticketId}` |
 | 저장한 컬렉션 | `GET /api/collections`, `GET /api/collections/{ticketId}`, `DELETE /api/collections/{ticketId}` |
+
+## Backend
+- [@ohujj](https://github.com/ohujj)
+- [@IISweetHeartII](https://github.com/IISweetHeartII)
+- [https://github.com/ohujj/CMC-Hackathon](https://github.com/ohujj/CMC-Hackathon)
+
+## iOS
+- [@yundal8755](https://github.com/yundal8755)
+- [https://github.com/yundal8755/Filmo](https://github.com/yundal8755/Filmo)
